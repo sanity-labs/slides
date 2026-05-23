@@ -1,0 +1,67 @@
+{
+  "name": "@sanity-labs/slides",
+  "version": "0.0.0",
+  "description": "Sanity's slide vocabulary for react-pptx: brand-locked slide components, brand tokens, and brand assets. Used by the generic `react-pptx-mcp` CLI to generate Sanity-branded .pptx decks.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./brand": "./src/components/brand.tsx",
+    "./tokens": "./src/tokens.ts",
+    "./flatten-for-brand": "./src/flatten-for-brand.ts",
+    "./primitives": "./src/primitives/index.ts"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json --force && node -e \"require('node:fs').cpSync('src/assets','dist/assets',{recursive:true})\"",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "slides-dev"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-pptx": "workspace:*"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "react-pptx": "workspace:*",
+    "react-pptx-dev": "workspace:*",
+    "react-pptx-mcp": "workspace:*",
+    "typescript": "5.9.3",
+    "vitest": "2.1.9"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./brand": {
+        "types": "./dist/components/brand.d.ts",
+        "import": "./dist/components/brand.js"
+      },
+      "./tokens": {
+        "types": "./dist/tokens.d.ts",
+        "import": "./dist/tokens.js"
+      },
+      "./flatten-for-brand": {
+        "types": "./dist/flatten-for-brand.d.ts",
+        "import": "./dist/flatten-for-brand.js"
+      },
+      "./primitives": {
+        "types": "./dist/primitives/index.d.ts",
+        "import": "./dist/primitives/index.js"
+      }
+    }
+  }
+}

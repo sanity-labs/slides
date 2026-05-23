@@ -1,0 +1,320 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderToOps — Box fill > a Box with both fill and text emits fill *before* insertText > ops 1`] = `
+[
+  {
+    "insertAt": 0,
+    "slideId": "slide_1",
+    "type": "createSlide",
+  },
+  {
+    "rect": {
+      "h": 1270000,
+      "w": 7620000,
+      "x": 685800,
+      "y": 685800,
+    },
+    "shape": "TEXT_BOX",
+    "shapeId": "shape_2",
+    "slideId": "slide_1",
+    "type": "createShape",
+  },
+  {
+    "objectId": "shape_2",
+    "properties": {
+      "fillColor": "#0b0b0b",
+    },
+    "type": "updateShapeProperties",
+  },
+  {
+    "objectId": "shape_2",
+    "text": "Hello",
+    "type": "insertText",
+  },
+]
+`;
+
+exports[`renderToOps — Box fill > an empty Box with a solid fill emits createShape → updateShapeProperties (no text ops) > ops 1`] = `
+[
+  {
+    "insertAt": 0,
+    "slideId": "slide_1",
+    "type": "createSlide",
+  },
+  {
+    "rect": {
+      "h": 6858000,
+      "w": 12192000,
+      "x": 0,
+      "y": 0,
+    },
+    "shape": "TEXT_BOX",
+    "shapeId": "shape_2",
+    "slideId": "slide_1",
+    "type": "createShape",
+  },
+  {
+    "objectId": "shape_2",
+    "properties": {
+      "fillColor": "#ff5500",
+    },
+    "type": "updateShapeProperties",
+  },
+]
+`;
+
+exports[`renderToOps — Box-level styles > Box textStyle and paragraphStyle become full-range update ops > ops 1`] = `
+[
+  {
+    "insertAt": 0,
+    "slideId": "slide_1",
+    "type": "createSlide",
+  },
+  {
+    "rect": {
+      "h": 1270000,
+      "w": 7620000,
+      "x": 685800,
+      "y": 685800,
+    },
+    "shape": "TEXT_BOX",
+    "shapeId": "shape_2",
+    "slideId": "slide_1",
+    "type": "createShape",
+  },
+  {
+    "objectId": "shape_2",
+    "text": "Title",
+    "type": "insertText",
+  },
+  {
+    "objectId": "shape_2",
+    "range": {
+      "end": 5,
+      "start": 0,
+    },
+    "style": {
+      "fontFamily": "Geist",
+      "fontSize": 56,
+      "foregroundColor": "#0b0b0b",
+    },
+    "type": "updateTextStyle",
+  },
+  {
+    "objectId": "shape_2",
+    "range": {
+      "end": 5,
+      "start": 0,
+    },
+    "style": {
+      "alignment": "START",
+      "lineSpacing": 1.1,
+    },
+    "type": "updateParagraphStyle",
+  },
+]
+`;
+
+exports[`renderToOps — Image primitive > emits createSlide → createImage with the resolved URL and rect > ops 1`] = `
+[
+  {
+    "insertAt": 0,
+    "slideId": "slide_1",
+    "type": "createSlide",
+  },
+  {
+    "imageId": "image_2",
+    "rect": {
+      "h": 6858000,
+      "w": 12192000,
+      "x": 0,
+      "y": 0,
+    },
+    "slideId": "slide_1",
+    "type": "createImage",
+    "url": "https://cdn.example.com/hero.png",
+  },
+]
+`;
+
+exports[`renderToOps — function components compose > a function component returning <Slide> resolves correctly > ops 1`] = `
+[
+  {
+    "insertAt": 0,
+    "slideId": "slide_1",
+    "type": "createSlide",
+  },
+  {
+    "rect": {
+      "h": 1270000,
+      "w": 7620000,
+      "x": 685800,
+      "y": 685800,
+    },
+    "shape": "TEXT_BOX",
+    "shapeId": "shape_2",
+    "slideId": "slide_1",
+    "type": "createShape",
+  },
+  {
+    "objectId": "shape_2",
+    "text": "Hello",
+    "type": "insertText",
+  },
+  {
+    "objectId": "shape_2",
+    "range": {
+      "end": 5,
+      "start": 0,
+    },
+    "style": {
+      "bold": true,
+    },
+    "type": "updateTextStyle",
+  },
+]
+`;
+
+exports[`renderToOps — multi-slide deck > emits ops for each slide in document order with stable IDs > ops 1`] = `
+[
+  {
+    "insertAt": 0,
+    "slideId": "slide_1",
+    "type": "createSlide",
+  },
+  {
+    "rect": {
+      "h": 635000,
+      "w": 1270000,
+      "x": 0,
+      "y": 0,
+    },
+    "shape": "TEXT_BOX",
+    "shapeId": "shape_2",
+    "slideId": "slide_1",
+    "type": "createShape",
+  },
+  {
+    "objectId": "shape_2",
+    "text": "A",
+    "type": "insertText",
+  },
+  {
+    "insertAt": 1,
+    "slideId": "slide_3",
+    "type": "createSlide",
+  },
+  {
+    "rect": {
+      "h": 635000,
+      "w": 1270000,
+      "x": 0,
+      "y": 0,
+    },
+    "shape": "TEXT_BOX",
+    "shapeId": "shape_4",
+    "slideId": "slide_3",
+    "type": "createShape",
+  },
+  {
+    "objectId": "shape_4",
+    "text": "B",
+    "type": "insertText",
+  },
+]
+`;
+
+exports[`renderToOps — multiple text runs in one Box > concatenates text and emits per-run style spans for non-empty styles > ops 1`] = `
+[
+  {
+    "insertAt": 0,
+    "slideId": "slide_1",
+    "type": "createSlide",
+  },
+  {
+    "rect": {
+      "h": 1270000,
+      "w": 7620000,
+      "x": 685800,
+      "y": 685800,
+    },
+    "shape": "TEXT_BOX",
+    "shapeId": "shape_2",
+    "slideId": "slide_1",
+    "type": "createShape",
+  },
+  {
+    "objectId": "shape_2",
+    "text": "Bold middle orange",
+    "type": "insertText",
+  },
+  {
+    "objectId": "shape_2",
+    "range": {
+      "end": 5,
+      "start": 0,
+    },
+    "style": {
+      "bold": true,
+    },
+    "type": "updateTextStyle",
+  },
+  {
+    "objectId": "shape_2",
+    "range": {
+      "end": 18,
+      "start": 12,
+    },
+    "style": {
+      "foregroundColor": "#ff5500",
+    },
+    "type": "updateTextStyle",
+  },
+]
+`;
+
+exports[`renderToOps — single slide with one box > emits createSlide → createShape → insertText in order > manifest 1`] = `
+{
+  "artifacts": [],
+  "deckId": null,
+  "generatedAt": "2026-05-04T15:00:00.000Z",
+  "generatedBy": "react-pptx",
+  "manifestVersion": "1",
+  "slots": {},
+  "templateName": "test",
+}
+`;
+
+exports[`renderToOps — single slide with one box > emits createSlide → createShape → insertText in order > ops 1`] = `
+[
+  {
+    "insertAt": 0,
+    "slideId": "slide_1",
+    "type": "createSlide",
+  },
+  {
+    "rect": {
+      "h": 1270000,
+      "w": 7620000,
+      "x": 685800,
+      "y": 685800,
+    },
+    "shape": "TEXT_BOX",
+    "shapeId": "shape_2",
+    "slideId": "slide_1",
+    "type": "createShape",
+  },
+  {
+    "objectId": "shape_2",
+    "text": "Hello, world.",
+    "type": "insertText",
+  },
+]
+`;
+
+exports[`renderToOps — slotId attaches the shape to the manifest > records SlotId → shapeId for each slot-bearing Box > slot map 1`] = `
+{
+  "cover:subtitle": "shape_3",
+  "cover:title": "shape_2",
+}
+`;

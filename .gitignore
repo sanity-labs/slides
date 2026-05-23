@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+packages/*/dist/
+build/
+*.tsbuildinfo
+.turbo/
+
+# Pack artifacts (verify-bins.sh creates these in /tmp; this guards against
+# accidental `pnpm pack` runs in a package dir that leave a stray .tgz)
+*.tgz
+
+# Test
+coverage/
+.vitest/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Tooling-test scratch — pptx-to-tsx integration test materializes drafts
+# here briefly to typecheck them with the package tsconfig.
+packages/sanity-slides/src/__pptx_drafts_check/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+Thumbs.db
+
+# Local smoke / scratch scripts (never committed)
+*.smoke.mjs
+*-smoke.mjs
+**/smoke.mjs
+**/smoke.ts

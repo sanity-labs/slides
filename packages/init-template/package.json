@@ -1,0 +1,46 @@
+{
+  "name": "create-react-pptx-template",
+  "version": "0.0.0",
+  "description": "Scaffold a new react-pptx template. Run `npm create react-pptx-template@latest`.",
+  "keywords": [
+    "react",
+    "pptx",
+    "powerpoint",
+    "scaffold",
+    "create",
+    "template"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sanity-labs/react-pptx.git",
+    "directory": "packages/init-template"
+  },
+  "homepage": "https://github.com/sanity-labs/react-pptx#readme",
+  "bugs": {
+    "url": "https://github.com/sanity-labs/react-pptx/issues"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "bin": {
+    "create-react-pptx-template": "./index.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "template-base"
+  ],
+  "dependencies": {
+    "@clack/prompts": "^0.7.0",
+    "picocolors": "^1.0.0"
+  },
+  "devDependencies": {
+    "react": "19.2.5",
+    "@types/react": "^19.0.0",
+    "zod": "^3.23.0",
+    "react-pptx": "workspace:*",
+    "react-pptx-dev": "workspace:*",
+    "typescript": "5.9.3"
+  }
+}

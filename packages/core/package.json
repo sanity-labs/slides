@@ -1,0 +1,106 @@
+{
+  "name": "react-pptx",
+  "version": "0.0.0",
+  "description": "React reconciler that compiles a typed component tree into a PPTX presentation. The renderer behind react-pptx-mcp.",
+  "keywords": [
+    "react",
+    "pptx",
+    "powerpoint",
+    "presentation",
+    "react-reconciler",
+    "react-pdf"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sanity-labs/react-pptx.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/sanity-labs/react-pptx/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/sanity-labs/react-pptx/issues"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./geometry": "./src/geometry.ts",
+    "./runtime": "./src/runtime.ts",
+    "./template": "./src/template.ts",
+    "./components": "./src/components.ts",
+    "./reconciler": "./src/reconciler.ts",
+    "./manifest": "./src/manifest.ts",
+    "./fake-runtime": "./src/fake-runtime.ts",
+    "./pptx-runtime": "./src/pptx-runtime.ts",
+    "./op-translator-pptx": "./src/op-translator-pptx.ts"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json --force",
+    "build:watch": "tsc -b tsconfig.build.json --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "pptxgenjs": "^4.0.1",
+    "zod": "^3.23.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./geometry": {
+        "types": "./dist/geometry.d.ts",
+        "import": "./dist/geometry.js"
+      },
+      "./runtime": {
+        "types": "./dist/runtime.d.ts",
+        "import": "./dist/runtime.js"
+      },
+      "./template": {
+        "types": "./dist/template.d.ts",
+        "import": "./dist/template.js"
+      },
+      "./components": {
+        "types": "./dist/components.d.ts",
+        "import": "./dist/components.js"
+      },
+      "./reconciler": {
+        "types": "./dist/reconciler.d.ts",
+        "import": "./dist/reconciler.js"
+      },
+      "./manifest": {
+        "types": "./dist/manifest.d.ts",
+        "import": "./dist/manifest.js"
+      },
+      "./fake-runtime": {
+        "types": "./dist/fake-runtime.d.ts",
+        "import": "./dist/fake-runtime.js"
+      },
+      "./pptx-runtime": {
+        "types": "./dist/pptx-runtime.d.ts",
+        "import": "./dist/pptx-runtime.js"
+      },
+      "./op-translator-pptx": {
+        "types": "./dist/op-translator-pptx.d.ts",
+        "import": "./dist/op-translator-pptx.js"
+      }
+    }
+  }
+}

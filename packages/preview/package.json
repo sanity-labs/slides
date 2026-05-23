@@ -1,0 +1,69 @@
+{
+  "name": "react-pptx-dev",
+  "version": "0.0.0",
+  "description": "Browser dev viewer for react-pptx templates. Renders any template against the same reconciler that emits the .pptx, with hot reload.",
+  "keywords": [
+    "react",
+    "pptx",
+    "powerpoint",
+    "vite",
+    "dev-server",
+    "preview"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sanity-labs/react-pptx.git",
+    "directory": "packages/preview"
+  },
+  "homepage": "https://github.com/sanity-labs/react-pptx/tree/main/packages/preview#readme",
+  "bugs": {
+    "url": "https://github.com/sanity-labs/react-pptx/issues"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "bin": {
+    "slides-dev": "./src/bin/slides-dev.mjs"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./compose-deck": "./src/compose-deck.ts",
+    "./slide-canvas": "./src/slide-canvas.tsx",
+    "./deck-viewer": "./src/deck-viewer.tsx",
+    "./auto-preview": "./src/auto-examples.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json --force",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "react-pptx": "workspace:*",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
+    "vite": "^5.4.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "tsx": "^4.19.0",
+    "zod": "^3.23.0",
+    "picocolors": "^1.0.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "clsx": "^2.1.0",
+    "react-zoom-pan-pinch": "^4.0.0",
+    "lucide-react": "^0.511.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "5.9.3",
+    "vitest": "2.1.9"
+  }
+}

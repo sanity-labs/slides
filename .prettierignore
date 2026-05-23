@@ -1,0 +1,9 @@
+# Build outputs
+**/dist/
+**/*.tsbuildinfo
+
+# Lockfiles — managed by pnpm
+pnpm-lock.yaml
+
+# Out-of-scope packages owned by a parallel workflow.
+packages/react-pptx-dev/
