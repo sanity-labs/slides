@@ -18,6 +18,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
 import type { Template } from '../core/index.js';
 import { scaffoldDeck, defaultName, validateName } from '../scaffold/index.js';
+import { assertAllowedImports } from './imports-allowlist.js';
 import { readRegisteredNames, writeAnchors } from './index-anchor.js';
 import { loadDeckTemplate } from './load-deck.js';
 import { assertValidComponentName } from './naming.js';
@@ -85,6 +86,7 @@ export const addComponent = async (params: {
 }): Promise<ComponentOpResult> => {
   const { deckPath, name, source } = params;
   assertValidComponentName(name);
+  assertAllowedImports(source);
   assertDeckExists(deckPath);
 
   const componentFile = componentPath(deckPath, name);
@@ -122,6 +124,7 @@ export const editComponent = async (params: {
 }): Promise<ComponentOpResult> => {
   const { deckPath, name, source } = params;
   assertValidComponentName(name);
+  assertAllowedImports(source);
   assertDeckExists(deckPath);
 
   const componentFile = componentPath(deckPath, name);

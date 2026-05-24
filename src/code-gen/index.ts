@@ -20,4 +20,5 @@ export { loadDeckTemplate } from './load-deck.js';
 export { typecheckDeck, type Diagnostic, type TypecheckResult } from './typecheck.js';
 export { writeAnchors, readRegisteredNames } from './index-anchor.js';
 export { assertValidComponentName } from './naming.js';
+export { assertAllowedImports, findDisallowedImports } from './imports-allowlist.js';
 export { linkDeckDeps } from './link-deps.js';

@@ -137,32 +137,38 @@ const makeHarness = async (): Promise<Harness> => {
 // ---------------------------------------------------------------------------
 
 describe('createSlideServer — tool registration', () => {
-  test('exposes slides_list, slides_create, the code-gen tools, plus one per slide type', async () => {
+  test('exposes a curated set of seven tools, no per-slide-type tools', async () => {
     const h = await makeHarness();
     try {
       const list = await h.client.listTools();
       const names = list.tools.map((t) => t.name).sort();
       expect(names).toEqual([
         'slides_add_component',
-        'slides_add_cover',
-        'slides_add_two_column',
         'slides_build',
         'slides_create',
         'slides_create_deck',
         'slides_edit_component',
         'slides_list',
+        'slides_validate',
       ]);
     } finally {
       await h.close();
     }
   });
 
-  test('per-slide-type tool description carries the template component description', async () => {
+  test('every tool carries a title and a multi-sentence description', async () => {
     const h = await makeHarness();
     try {
       const list = await h.client.listTools();
-      const cover = list.tools.find((t) => t.name === 'slides_add_cover');
-      expect(cover?.description).toBe('Use as the first slide. Sets title and stance.');
+      for (const tool of list.tools) {
+        expect(tool.title, `tool ${tool.name} should set a title`).toBeTruthy();
+        const description = tool.description ?? '';
+        const sentenceCount = description.split(/\.\s/).filter((s) => s.trim().length > 0).length;
+        expect(
+          sentenceCount,
+          `tool ${tool.name} description should be at least 3 sentences`,
+        ).toBeGreaterThanOrEqual(3);
+      }
     } finally {
       await h.close();
     }
@@ -182,38 +188,98 @@ describe('createSlideServer — tool registration', () => {
 });
 
 describe('slides_list', () => {
-  test('returns the template name and every slide type with description', async () => {
+  test('concise mode (default) returns name + description per slide type', async () => {
     const h = await makeHarness();
     try {
       const result = await h.client.callTool({ name: 'slides_list', arguments: {} });
       expect(result.isError).toBeFalsy();
       const sc = result.structuredContent as {
         template: string;
-        slides: Array<{ name: string; toolName: string; description: string }>;
+        slides: Array<{ name: string; description: string; inputJsonSchema?: unknown }>;
       };
       expect(sc.template).toBe('test');
       expect(sc.slides.map((s) => s.name).sort()).toEqual(['Cover', 'TwoColumn']);
       const cover = sc.slides.find((s) => s.name === 'Cover');
-      expect(cover?.toolName).toBe('slides_add_cover');
       expect(cover?.description).toMatch(/first slide/);
+      // Schemas are NOT included in concise mode — saves tokens by default.
+      expect(cover?.inputJsonSchema).toBeUndefined();
+    } finally {
+      await h.close();
+    }
+  });
+
+  test('detailed mode includes JSON Schemas for each slide type', async () => {
+    const h = await makeHarness();
+    try {
+      const result = await h.client.callTool({
+        name: 'slides_list',
+        arguments: { detail: 'detailed' },
+      });
+      expect(result.isError).toBeFalsy();
+      const sc = result.structuredContent as {
+        slides: Array<{
+          name: string;
+          inputJsonSchema?: { type?: string; required?: string[]; additionalProperties?: boolean };
+        }>;
+      };
+      const cover = sc.slides.find((s) => s.name === 'Cover');
+      expect(cover?.inputJsonSchema?.type).toBe('object');
+      expect(cover?.inputJsonSchema?.required).toEqual(['title']);
+      // .strict() should map to additionalProperties: false.
+      expect(cover?.inputJsonSchema?.additionalProperties).toBe(false);
     } finally {
       await h.close();
     }
   });
 });
 
-describe('slides_add_<component> — schema-introspection tools', () => {
+describe('slides_validate', () => {
   test('valid props echo back as a slide spec', async () => {
     const h = await makeHarness();
     try {
       const result = await h.client.callTool({
-        name: 'slides_add_cover',
-        arguments: { title: 'Q2 Review' },
+        name: 'slides_validate',
+        arguments: { component: 'Cover', props: { title: 'Q2 Review' } },
       });
       expect(result.isError).toBeFalsy();
       expect(result.structuredContent).toEqual({
         slide: { component: 'Cover', props: { title: 'Q2 Review' } },
       });
+    } finally {
+      await h.close();
+    }
+  });
+
+  test('unknown component returns a structured error pointing at slides_list', async () => {
+    const h = await makeHarness();
+    try {
+      const result = await h.client.callTool({
+        name: 'slides_validate',
+        arguments: { component: 'NotARealType', props: {} },
+      });
+      expect(result.isError).toBe(true);
+      const sc = result.structuredContent as { error: { code: string; message: string } };
+      expect(sc.error.code).toBe('unknown_component');
+      expect(sc.error.message).toMatch(/Cover/);
+      expect(sc.error.message).toMatch(/slides_list/);
+    } finally {
+      await h.close();
+    }
+  });
+
+  test('invalid props surface field paths and a recovery hint', async () => {
+    const h = await makeHarness();
+    try {
+      const result = await h.client.callTool({
+        name: 'slides_validate',
+        arguments: { component: 'Cover', props: { subtitle: 'no title' } },
+      });
+      expect(result.isError).toBe(true);
+      const sc = result.structuredContent as {
+        error: { code: string; issues: Array<{ path: string }> };
+      };
+      expect(sc.error.code).toBe('validation_error');
+      expect(sc.error.issues.some((i) => i.path === 'title')).toBe(true);
     } finally {
       await h.close();
     }

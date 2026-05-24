@@ -13,7 +13,6 @@
  * canvas dimensions so they self-correct without consulting docs.
  */
 
-import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { linkDeckDeps } from './link-deps.js';
 
@@ -91,13 +90,30 @@ const formatDiagnostic = (
   };
 };
 
+/**
+ * How many diagnostics we surface to the agent at once. Tsc cascades — a
+ * single missing import can produce 30+ downstream errors — so we cap the
+ * visible list and let the agent iterate. Aligns with Anthropic's guidance
+ * to keep tool responses bounded (default ~25k tokens for Claude Code).
+ */
+const MAX_VISIBLE_DIAGNOSTICS = 20;
+
 const errorResult = (diagnostics: Diagnostic[]): TypecheckResult => {
-  const bullets = diagnostics
+  const visible = diagnostics.slice(0, MAX_VISIBLE_DIAGNOSTICS);
+  const hidden = diagnostics.length - visible.length;
+  const bullets = visible
     .map((d) => `  • ${d.file}:${d.line}:${d.column}  TS${d.code}: ${d.message}`)
     .join('\n');
+  const overflow =
+    hidden > 0
+      ? `\n  … and ${hidden} more. Fix the listed errors first — ` +
+        `they typically cascade and most downstream diagnostics will clear ` +
+        `on their own. Call slides_build after each fix to refresh.`
+      : '';
   const summary =
     `Typecheck failed with ${diagnostics.length} ${diagnostics.length === 1 ? 'error' : 'errors'}:\n` +
     bullets +
+    overflow +
     '\n\n' +
     AGENT_HINT;
   return { ok: false, summary, diagnostics };
@@ -112,7 +128,3 @@ const AGENT_HINT = [
   'Canvas: 960pt × 540pt (16:9, CANVAS_16_9).',
   'Read the error file/line, fix the source via slides_edit_component, and call slides_build again.',
 ].join('\n');
-
-/** Re-export for ergonomics in tests. */
-export const readDeckIndex = (deckPath: string): string =>
-  readFileSync(join(deckPath, 'src', 'index.ts'), 'utf8');

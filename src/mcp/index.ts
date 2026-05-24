@@ -1,20 +1,18 @@
 /**
- * react-pptx-mcp — template-agnostic MCP server framework.
+ * `@sanity-labs/slides/mcp` — the template-agnostic MCP server framework.
  *
- * The substrate a template package wires into to expose its slide-component
- * library as an MCP server. Iterates the template's components, derives one
- * MCP tool per slide type (default name `slides_add_<component>`; override
- * via `SlideServerConfig.toolPrefix`), plus a discovery tool (`slides_list`)
- * and a one-shot create tool (`slides_create`), then starts a stdio transport.
+ * `createSlideServer({ template, runtime })` builds an `McpServer` exposing a
+ * curated set of seven tools (see `server.ts` for the full breakdown):
+ *
+ *   slides_list, slides_validate, slides_create,
+ *   slides_create_deck, slides_add_component, slides_edit_component, slides_build
  *
  * The `start({ transport })` shape is the seam for Streamable HTTP / remote
  * transports later. Today only stdio is implemented.
  *
- * Public API:
- *
  * ```ts
- * import { createSlideServer } from '../mcp/index.js';
- * import { PptxSlidesRuntime } from '../core/index.js'; // or any SlidesRuntime
+ * import { createSlideServer } from '@sanity-labs/slides/mcp';
+ * import { PptxSlidesRuntime } from '@sanity-labs/slides';
  *
  * const runtime = new PptxSlidesRuntime({ outputDir: '/tmp/decks' });
  * const server = createSlideServer({ template: myTemplate, runtime });
@@ -29,13 +27,6 @@ export {
   type StartOptions,
 } from './server.js';
 export { renderSlides, type RenderResult, type RenderIssue, type SlideSpec } from './render.js';
-export {
-  componentToTool,
-  deriveComponentTools,
-  type DerivedTool,
-  type JsonSchema,
-} from './schema.js';
-export { DEFAULT_COMPONENT_TOOL_PREFIX, componentToolName, toSnakeCase } from './naming.js';
 export {
   errorResult,
   formatZodIssue,
