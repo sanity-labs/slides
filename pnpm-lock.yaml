@@ -39,70 +39,20 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.19)(lightningcss@1.32.0)
 
-  packages/core:
-    dependencies:
-      '@resvg/resvg-js':
-        specifier: ^2.6.2
-        version: 2.6.2
-      pptxgenjs:
-        specifier: ^4.0.1
-        version: 4.0.1
-      zod:
-        specifier: ^3.23.0
-        version: 3.25.76
-    devDependencies:
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.15
-      react:
-        specifier: ^19.0.0
-        version: 19.2.5
-      typescript:
-        specifier: ^5.5.0
-        version: 5.9.3
-      vitest:
-        specifier: ^2.0.0
-        version: 2.1.9(@types/node@22.19.19)(lightningcss@1.32.0)
-
-  packages/init-template:
-    dependencies:
-      '@clack/prompts':
-        specifier: ^0.7.0
-        version: 0.7.0
-      picocolors:
-        specifier: ^1.0.0
-        version: 1.1.1
-    devDependencies:
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.15
-      react:
-        specifier: 19.2.5
-        version: 19.2.5
-      react-pptx:
-        specifier: workspace:*
-        version: link:../core
-      react-pptx-dev:
-        specifier: workspace:*
-        version: link:../preview
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-      zod:
-        specifier: ^3.23.0
-        version: 3.25.76
-
-  packages/mcp:
+  packages/slides:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
-      react:
-        specifier: ^19.0.0
-        version: 19.2.5
-      react-pptx:
-        specifier: workspace:*
-        version: link:../core
+      '@resvg/resvg-js':
+        specifier: ^2.6.2
+        version: 2.6.2
+      picocolors:
+        specifier: ^1.0.0
+        version: 1.1.1
+      pptxgenjs:
+        specifier: ^4.0.1
+        version: 4.0.1
       zod:
         specifier: ^3.23.0
         version: 3.25.76
@@ -110,24 +60,18 @@ importers:
         specifier: ^3.24.0
         version: 3.25.2(zod@3.25.76)
     devDependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.0.0
+        version: 4.3.0(vite@5.4.21(@types/node@22.19.19)(lightningcss@1.32.0))
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.19
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.15
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: 2.1.9
-        version: 2.1.9(@types/node@22.19.19)(lightningcss@1.32.0)
-
-  packages/preview:
-    dependencies:
-      '@tailwindcss/vite':
-        specifier: ^4.0.0
-        version: 4.3.0(vite@5.4.21(@types/node@22.19.19)(lightningcss@1.32.0))
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.15)
       '@vitejs/plugin-react':
         specifier: ^4.3.0
         version: 4.7.0(vite@5.4.21(@types/node@22.19.19)(lightningcss@1.32.0))
@@ -136,75 +80,28 @@ importers:
         version: 2.1.1
       lucide-react:
         specifier: ^0.511.0
-        version: 0.511.0(react@19.2.5)
-      picocolors:
-        specifier: ^1.0.0
-        version: 1.1.1
+        version: 0.511.0(react@19.2.6)
       react:
-        specifier: 19.2.5
-        version: 19.2.5
+        specifier: ^19.2.5
+        version: 19.2.6
       react-dom:
-        specifier: 19.2.5
-        version: 19.2.5(react@19.2.5)
-      react-pptx:
-        specifier: workspace:*
-        version: link:../core
+        specifier: ^19.2.5
+        version: 19.2.6(react@19.2.6)
       react-zoom-pan-pinch:
         specifier: ^4.0.0
-        version: 4.0.3(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+        version: 4.0.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       tailwindcss:
         specifier: ^4.0.0
         version: 4.3.0
       tsx:
         specifier: ^4.19.0
         version: 4.22.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
       vite:
         specifier: ^5.4.0
         version: 5.4.21(@types/node@22.19.19)(lightningcss@1.32.0)
-      zod:
-        specifier: ^3.23.0
-        version: 3.25.76
-    devDependencies:
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.15
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.3(@types/react@19.2.15)
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: 2.1.9
-        version: 2.1.9(@types/node@22.19.19)(lightningcss@1.32.0)
-
-  templates/sanity:
-    dependencies:
-      zod:
-        specifier: ^3.23.0
-        version: 3.25.76
-    devDependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.29.0
-        version: 1.29.0(zod@3.25.76)
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.15
-      react:
-        specifier: ^19.0.0
-        version: 19.2.5
-      react-pptx:
-        specifier: workspace:*
-        version: link:../../packages/core
-      react-pptx-dev:
-        specifier: workspace:*
-        version: link:../../packages/preview
-      react-pptx-mcp:
-        specifier: workspace:*
-        version: link:../../packages/mcp
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
       vitest:
         specifier: 2.1.9
         version: 2.1.9(@types/node@22.19.19)(lightningcss@1.32.0)
@@ -358,14 +255,6 @@ packages:
 
   '@changesets/write@0.4.0':
     resolution: {integrity: sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q==}
-
-  '@clack/core@0.3.5':
-    resolution: {integrity: sha512-5cfhQNH+1VQ2xLQlmzXMqUoiaH0lRBq9/CLW9lTyMbuKLC3+xEK01tHVvyut++mLOn5urSHmkm6I0Lg9MaJSTQ==}
-
-  '@clack/prompts@0.7.0':
-    resolution: {integrity: sha512-0MhX9/B4iL6Re04jPrttDm+BsP8y6mS7byuv0BvXgdXhbV5PdlsHt55dvNsuBCPZ7xq1oTAOOuotR9NFbQyMSA==}
-    bundledDependencies:
-      - is-unicode-supported
 
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
@@ -2291,10 +2180,10 @@ packages:
     resolution: {integrity: sha512-K5zQjDllxWkf7Z5xJdV0/B0WTNqx6vxG70zJE4N0kBs4LovmEYWJzQGxC9bS9RAKu3bgM40lrd5zoLJ12MQ5BA==}
     engines: {node: '>= 0.10'}
 
-  react-dom@19.2.5:
-    resolution: {integrity: sha512-J5bAZz+DXMMwW/wV3xzKke59Af6CHY7G4uYLN1OvBcKEsWOs4pQExj86BBKamxl/Ik5bx9whOrvBlSDfWzgSag==}
+  react-dom@19.2.6:
+    resolution: {integrity: sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g==}
     peerDependencies:
-      react: ^19.2.5
+      react: ^19.2.6
 
   react-refresh@0.17.0:
     resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
@@ -2307,8 +2196,8 @@ packages:
       react: '*'
       react-dom: '*'
 
-  react@19.2.5:
-    resolution: {integrity: sha512-llUJLzz1zTUBrskt2pwZgLq59AemifIftw4aB7JxOqf1HY2FDaGDxgwpAPVzHU1kdWabH7FauP4i1oEeer2WCA==}
+  react@19.2.6:
+    resolution: {integrity: sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q==}
     engines: {node: '>=0.10.0'}
 
   read-yaml-file@1.1.0:
@@ -2408,9 +2297,6 @@ packages:
   signal-exit@4.1.0:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
-
-  sisteransi@1.0.5:
-    resolution: {integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==}
 
   slash@3.0.0:
     resolution: {integrity: sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q==}
@@ -2949,17 +2835,6 @@ snapshots:
       fs-extra: 7.0.1
       human-id: 4.1.3
       prettier: 2.8.8
-
-  '@clack/core@0.3.5':
-    dependencies:
-      picocolors: 1.1.1
-      sisteransi: 1.0.5
-
-  '@clack/prompts@0.7.0':
-    dependencies:
-      '@clack/core': 0.3.5
-      picocolors: 1.1.1
-      sisteransi: 1.0.5
 
   '@emnapi/core@1.10.0':
     dependencies:
@@ -4470,9 +4345,9 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
-  lucide-react@0.511.0(react@19.2.5):
+  lucide-react@0.511.0(react@19.2.6):
     dependencies:
-      react: 19.2.5
+      react: 19.2.6
 
   magic-string@0.30.21:
     dependencies:
@@ -4679,19 +4554,19 @@ snapshots:
       iconv-lite: 0.7.2
       unpipe: 1.0.0
 
-  react-dom@19.2.5(react@19.2.5):
+  react-dom@19.2.6(react@19.2.6):
     dependencies:
-      react: 19.2.5
+      react: 19.2.6
       scheduler: 0.27.0
 
   react-refresh@0.17.0: {}
 
-  react-zoom-pan-pinch@4.0.3(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
+  react-zoom-pan-pinch@4.0.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
     dependencies:
-      react: 19.2.5
-      react-dom: 19.2.5(react@19.2.5)
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
 
-  react@19.2.5: {}
+  react@19.2.6: {}
 
   read-yaml-file@1.1.0:
     dependencies:
@@ -4839,8 +4714,6 @@ snapshots:
   siginfo@2.0.0: {}
 
   signal-exit@4.1.0: {}
-
-  sisteransi@1.0.5: {}
 
   slash@3.0.0: {}
 

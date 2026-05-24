@@ -1,22 +1,21 @@
 {
-  "name": "react-pptx-monorepo",
+  "name": "slides-monorepo",
   "private": true,
   "type": "module",
   "version": "0.0.0",
-  "description": "React renderer + MCP server framework for generating template-locked PPTX presentations.",
+  "description": "Development workspace for @sanity-labs/slides. The publishable package lives at packages/slides.",
   "workspaces": [
-    "packages/*",
-    "templates/*"
+    "packages/*"
   ],
   "scripts": {
-    "build": "pnpm -r --filter '!react-pptx-monorepo' build",
+    "build": "pnpm --filter @sanity-labs/slides build",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip",
-    "typecheck": "pnpm -r --filter '!react-pptx-monorepo' typecheck",
+    "typecheck": "pnpm --filter @sanity-labs/slides typecheck",
     "verify-bins": "bash scripts/verify-bins.sh",
     "verify": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run build && pnpm run test && pnpm run knip && pnpm run verify-bins",
     "changeset": "changeset",

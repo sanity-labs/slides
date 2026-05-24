@@ -1,9 +1,4 @@
 {
   "files": [],
-  "references": [
-    { "path": "./packages/core" },
-    { "path": "./packages/mcp" },
-    { "path": "./packages/preview" },
-    { "path": "./templates/sanity" }
-  ]
+  "references": [{ "path": "./packages/slides" }]
 }

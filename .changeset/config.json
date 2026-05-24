@@ -1,11 +1,11 @@
 {
   "$schema": "https://unpkg.com/@changesets/config/schema.json",
-  "changelog": ["@changesets/changelog-github", { "repo": "sanity-labs/react-pptx" }],
+  "changelog": ["@changesets/changelog-github", { "repo": "sanity-labs/slides" }],
   "commit": false,
-  "fixed": [["react-pptx", "react-pptx-mcp", "react-pptx-dev"]],
+  "fixed": [],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@sanity-labs/slides"]
+  "ignore": []
 }

@@ -1,12 +1,13 @@
-# react-pptx
+# @sanity-labs/slides
 
-**Brand-locked PowerPoint files from an LLM. You write the template in React; Claude writes the deck.**
+**Brand-locked PowerPoint generation for LLMs. Write your slide template in React; Claude writes the deck.**
 
-[![ci](https://github.com/sanity-labs/react-pptx/actions/workflows/ci.yml/badge.svg)](https://github.com/sanity-labs/react-pptx/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/react-pptx-mcp?label=react-pptx-mcp)](https://www.npmjs.com/package/react-pptx-mcp)
-[![npm](https://img.shields.io/npm/v/react-pptx?label=react-pptx)](https://www.npmjs.com/package/react-pptx)
+[![ci](https://github.com/sanity-labs/slides/actions/workflows/ci.yml/badge.svg)](https://github.com/sanity-labs/slides/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@sanity-labs/slides)](https://www.npmjs.com/package/@sanity-labs/slides)
 
-A template is a React project. Each slide type is a component + a Zod schema. The package `react-pptx-mcp` reads your template and exposes it to Claude (or any MCP client) as auto-derived tools. The LLM can pick slide types and fill props, but it cannot pick fonts, colors, or layout — those are locked in the template.
+A template is a React project. Each slide type is a component + a Zod schema. The bundled MCP server reads your template and exposes it to Claude (or any MCP client) as auto-derived tools. The LLM can pick slide types and fill props, but it cannot pick fonts, colors, or layout — those are locked in the template.
+
+One package on npm. Four subpath exports. One CLI bin.
 
 ---
 
@@ -15,13 +16,13 @@ A template is a React project. Each slide type is a component + a Zod schema. Th
 ### 1. Scaffold a template
 
 ```bash
-npm create react-pptx-template@latest my-template
+npx @sanity-labs/slides scaffold my-template
 cd my-template
 pnpm install
 pnpm dev    # opens the hot-reloading viewer at http://localhost:5173
 ```
 
-You get a working template with one starter slide (`Cover`) and a viewer. Edit anything under `src/` and the page updates.
+You get a working template with one starter slide (`Cover`) and a Vite-backed dev viewer. Edit anything under `src/` and the page updates.
 
 ### 2. Build it
 
@@ -38,11 +39,11 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (or the e
 ```json
 {
   "mcpServers": {
-    "my-template-slides": {
+    "slides": {
       "command": "npx",
       "args": [
         "-y",
-        "react-pptx-mcp",
+        "@sanity-labs/slides",
         "serve",
         "--template",
         "/absolute/path/to/my-template/dist/index.js",
@@ -62,11 +63,11 @@ Restart Claude.
 
 Claude calls `slides_list` to learn what slide types exist, fills props from the conversation, calls `slides_create`, and hands you back the absolute path to the `.pptx`.
 
-That's it. Total setup: about two minutes once you have a template.
+Total setup time once you have a template: about two minutes.
 
 ---
 
-## What you're shipping when you build a template
+## What you ship when you build a template
 
 ```
 my-template/
@@ -83,7 +84,7 @@ A slide type is a React component with a Zod schema next to it:
 
 ```tsx
 // src/components/Quote.tsx
-import { Slide, Box, Text } from 'react-pptx';
+import { Slide, Box, Text } from '@sanity-labs/slides';
 import { z } from 'zod';
 
 export const QuoteSchema = z
@@ -132,7 +133,7 @@ The Zod schema field `.describe(...)` text becomes the LLM-facing documentation.
 
 ## What Claude sees
 
-After you wire the MCP server in, Claude has three tools:
+After you wire the MCP server in, Claude has three tools, auto-derived from your template:
 
 | Tool                | Purpose                                                                   |
 | ------------------- | ------------------------------------------------------------------------- |
@@ -140,28 +141,56 @@ After you wire the MCP server in, Claude has three tools:
 | `slides_add_<type>` | Validates a single slide's props against the Zod schema.                  |
 | `slides_create`     | Takes `{ title, slides }`, writes the `.pptx`, returns the absolute path. |
 
-The MCP also ships an LLM skill describing the calling convention. Print it with:
+The package also ships an LLM skill describing the calling convention. Print it with:
 
 ```bash
-npx react-pptx-mcp skill
+npx @sanity-labs/slides skill
 ```
 
 Paste it into a Claude project's knowledge sources to teach the model the workflow up front.
 
 ---
 
-## The packages
+## Subpath layout
 
-| Package                      | What it is                                                            |
-| ---------------------------- | --------------------------------------------------------------------- |
-| `react-pptx`                 | The React renderer + PPTX runtime + `Template` type.                  |
-| `react-pptx-mcp`             | The MCP server + the generic `react-pptx-mcp` CLI + bundled SKILL.md. |
-| `create-react-pptx-template` | The scaffold — `npm create react-pptx-template`.                      |
-| `react-pptx-dev`             | The browser dev viewer used by `pnpm dev`.                            |
+One npm package, four import surfaces:
 
-End users install nothing globally. The Claude config uses `npx -y react-pptx-mcp` so the latest published version is fetched on demand.
+| Subpath                        | Contents                                                                |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| `@sanity-labs/slides`          | Renderer + `Template` type + `Slide`/`Box`/`Text` primitives + runtime. |
+| `@sanity-labs/slides/mcp`      | `createSlideServer`, `renderSlides` — programmatic MCP API.             |
+| `@sanity-labs/slides/dev`      | Dev-viewer building blocks (`composeDeck`, `DeckViewer`).               |
+| `@sanity-labs/slides/sanity`   | The Sanity reference template (Template value, brand assets, helpers).  |
+| `@sanity-labs/slides/scaffold` | `scaffoldTemplate({ target, name })` — programmatic scaffold API.       |
+| `@sanity-labs/slides/skill`    | The bundled `SKILL.md` Markdown file.                                   |
 
-Templates **live in user repos**. They are normal npm packages (private or public) that the MCP imports at runtime.
+Vite, tailwind, react-dom, lucide-react and friends are listed as **optional peer dependencies**, only required when you import `/dev`. Users wiring the MCP into Claude pay for none of that install weight.
+
+### Bins
+
+| Bin          | Purpose                                                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------- |
+| `slidesctl`  | The CLI the MCP server runs on. Subcommands: `serve`, `generate`, `list`, `scaffold`, `skill`. |
+| `slides-dev` | The Vite-backed dev viewer used by template authors' `pnpm dev`.                               |
+
+`npx @sanity-labs/slides …` resolves to the `slidesctl` bin (matches the package's short name).
+
+---
+
+## Reference template
+
+`templates/sanity` ships as `@sanity-labs/slides/sanity` for two reasons:
+
+```ts
+// Import it directly
+import { sanity } from '@sanity-labs/slides/sanity';
+
+// Or point the MCP at it without a custom template
+// In Claude config:
+//   "args": ["-y", "@sanity-labs/slides", "serve", "--template", "@sanity-labs/slides/sanity"]
+```
+
+It's also the most thorough authoring example in the repo — eight slide types, brand chrome helpers, embedded raster assets, and SVG textures.
 
 ---
 
@@ -169,42 +198,45 @@ Templates **live in user repos**. They are normal npm packages (private or publi
 
 ```text
 packages/
-├── core/              react-pptx
-├── mcp/               react-pptx-mcp (the product)
-├── preview/           react-pptx-dev
-└── init-template/     create-react-pptx-template
+└── slides/                       # the single published package
+    ├── package.json              # single source of truth (exports, bin, deps)
+    ├── README.md
+    ├── SKILL.md                  # shipped — served by `slidesctl skill`
+    ├── src/
+    │   ├── index.ts              # root: renderer + Template + primitives
+    │   ├── cli.ts                # `slidesctl` bin
+    │   ├── core/                 # renderer + PPTX runtime
+    │   ├── mcp/                  # MCP server framework
+    │   ├── dev/                  # browser dev viewer (incl. slides-dev bin)
+    │   ├── sanity/               # Sanity reference template
+    │   └── scaffold/             # scaffold logic + template-base/
+    └── scripts/
+        └── copy-static-assets.mjs
 
-templates/
-└── sanity/            Reference template used for examples + tests (not published).
-
-docs/                  Architecture & testing strategy.
-.changeset/            Changesets config + queued release notes.
-.github/workflows/     CI + release pipeline.
+docs/                             architecture, testing strategy
+.changeset/                       changesets config + queued release notes
+.github/workflows/                CI + release pipeline
 ```
 
 ---
 
 ## Contributing
 
-See [`docs/architecture.md`](./docs/architecture.md) for the layer pyramid and [`docs/testing-strategy.md`](./docs/testing-strategy.md) for the testing approach.
-
-Workflow:
+See [`docs/architecture.md`](./docs/architecture.md) for the layer pyramid.
 
 ```bash
 pnpm install
 pnpm verify    # typecheck + lint + format + build + test + knip + verify-bins
 ```
 
-Releases are driven by [Changesets](https://github.com/changesets/changesets):
+Releases use [Changesets](https://github.com/changesets/changesets):
 
 ```bash
-pnpm changeset    # describe what changed
+pnpm changeset    # describe what changed (single package — just pick patch/minor/major)
 git commit -am "feat: …"
 # A "Version Packages" PR opens automatically on push to main.
-# Merge that PR and the release workflow publishes to npm.
+# Merge that PR and the release workflow publishes @sanity-labs/slides to npm.
 ```
-
-`react-pptx`, `react-pptx-mcp`, and `react-pptx-dev` are version-locked (`fixed` in `.changeset/config.json`) so users never have to reason about cross-package compatibility.
 
 ## License
 
