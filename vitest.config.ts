@@ -4,10 +4,7 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
-    include: [
-      'packages/*/src/**/*.test.{ts,tsx}',
-      'templates/*/src/**/*.test.{ts,tsx}',
-      'templates/*/tools/**/*.test.{ts,tsx}',
-    ],
+    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['./test/setup-snapshots.ts'],
   },
 });

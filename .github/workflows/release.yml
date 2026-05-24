@@ -53,8 +53,7 @@ jobs:
         run: npm install -g npm@latest
 
       - run: pnpm install --frozen-lockfile
-
-      - run: pnpm -r --filter '!react-pptx-monorepo' build
+      - run: pnpm build
 
       - name: Create Release Pull Request or Publish to npm
         id: changesets

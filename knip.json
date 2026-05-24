@@ -1,20 +1,18 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "ignoreWorkspaces": ["packages/preview", "packages/init-template"],
-  "workspaces": {
-    ".": {
-      "project": []
-    },
-    "packages/core": {
-      "project": ["src/**/*.ts"]
-    },
-    "packages/mcp": {
-      "project": ["src/**/*.ts"]
-    },
-    "templates/sanity": {
-      // ships React component (.tsx) sources alongside .ts modules; widen
-      // the project pattern so knip walks both.
-      "project": ["src/**/*.ts", "src/**/*.tsx"]
-    }
-  }
+  "rules": {
+    "exports": "off",
+    "types": "off"
+  },
+  "entry": [
+    "src/cli.ts",
+    "src/dev/bin/slides-dev.mjs",
+    "src/dev/bin/slides-dev.ts",
+    "src/dev/dev-server/client/entry.tsx",
+    "src/dev/dev-server/server-only-stub.ts",
+    "src/__tests__/fixtures/test-template/index.tsx"
+  ],
+  "ignore": ["src/scaffold/template-base/**"],
+  "ignoreDependencies": ["tailwindcss"],
+  "project": ["src/**/*.{ts,tsx,mjs}", "scripts/**/*.{mjs,js}"]
 }
