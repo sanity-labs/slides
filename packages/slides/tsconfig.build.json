@@ -10,5 +10,12 @@
     "composite": false
   },
   "include": ["src/**/*"],
-  "exclude": ["**/*.test.ts", "**/*.test.tsx", "**/__snapshots__/**", "dist", "node_modules"]
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/__snapshots__/**",
+    "src/scaffold/template-base/**",
+    "dist",
+    "node_modules"
+  ]
 }
