@@ -4,9 +4,7 @@
  * keeps the same module-relative layout that the .ts source uses.
  *
  * What gets copied:
- *   - Sanity brand PNG assets         src/sanity/assets/ → dist/sanity/assets/
  *   - Dev viewer CSS                  src/dev/styles.css → dist/dev/styles.css
- *   - Dev server static client files  src/dev/dev-server/client/**.html?
  *   - Scaffold template-base source   src/scaffold/template-base/ → dist/scaffold/template-base/
  *   - Dev bin shim (raw .mjs)         src/dev/bin/slides-dev.mjs → dist/dev/bin/slides-dev.mjs
  */
@@ -19,7 +17,6 @@ const HERE = fileURLToPath(new URL('.', import.meta.url));
 const PKG = resolvePath(HERE, '..');
 
 const copies = [
-  ['src/sanity/assets', 'dist/sanity/assets'],
   ['src/dev/styles.css', 'dist/dev/styles.css'],
   ['src/scaffold/template-base', 'dist/scaffold/template-base'],
   ['src/dev/bin/slides-dev.mjs', 'dist/dev/bin/slides-dev.mjs'],

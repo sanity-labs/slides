@@ -160,7 +160,6 @@ One npm package, four import surfaces:
 | `@sanity-labs/slides`          | Renderer + `Template` type + `Slide`/`Box`/`Text` primitives + runtime. |
 | `@sanity-labs/slides/mcp`      | `createSlideServer`, `renderSlides` — programmatic MCP API.             |
 | `@sanity-labs/slides/dev`      | Dev-viewer building blocks (`composeDeck`, `DeckViewer`).               |
-| `@sanity-labs/slides/sanity`   | The Sanity reference template (Template value, brand assets, helpers).  |
 | `@sanity-labs/slides/scaffold` | `scaffoldTemplate({ target, name })` — programmatic scaffold API.       |
 | `@sanity-labs/slides/skill`    | The bundled `SKILL.md` Markdown file.                                   |
 
@@ -179,18 +178,22 @@ Vite, tailwind, react-dom, lucide-react and friends are listed as **optional pee
 
 ## Reference template
 
-`templates/sanity` ships as `@sanity-labs/slides/sanity` for two reasons:
+The Sanity-branded reference template lives in its own repo at [`sanity-labs/slides-template`](https://github.com/sanity-labs/slides-template). It's the most thorough authoring example — eight slide types, brand chrome helpers, embedded raster assets, and SVG textures — and it dogfoods this package by consuming `@sanity-labs/slides` exactly the way an external user would.
 
-```ts
-// Import it directly
-import { sanity } from '@sanity-labs/slides/sanity';
+To use it:
 
-// Or point the MCP at it without a custom template
-// In Claude config:
-//   "args": ["-y", "@sanity-labs/slides", "serve", "--template", "@sanity-labs/slides/sanity"]
+```bash
+git clone git@github.com:sanity-labs/slides-template.git
+cd slides-template
+pnpm install
+pnpm build
 ```
 
-It's also the most thorough authoring example in the repo — eight slide types, brand chrome helpers, embedded raster assets, and SVG textures.
+Then point Claude at it the same way as any other template:
+
+```json
+"args": ["-y", "@sanity-labs/slides", "serve", "--template", "/abs/path/to/slides-template/dist/index.js"]
+```
 
 ---
 
@@ -208,8 +211,8 @@ packages/
     │   ├── core/                 # renderer + PPTX runtime
     │   ├── mcp/                  # MCP server framework
     │   ├── dev/                  # browser dev viewer (incl. slides-dev bin)
-    │   ├── sanity/               # Sanity reference template
-    │   └── scaffold/             # scaffold logic + template-base/
+    │   ├── scaffold/             # scaffold logic + template-base/
+    │   └── __tests__/            # framework smoke tests + synthetic fixture template
     └── scripts/
         └── copy-static-assets.mjs
 

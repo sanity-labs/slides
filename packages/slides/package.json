@@ -33,7 +33,6 @@
     ".": "./src/index.ts",
     "./mcp": "./src/mcp/index.ts",
     "./dev": "./src/dev/index.ts",
-    "./sanity": "./src/sanity/index.ts",
     "./scaffold": "./src/scaffold/index.ts",
     "./skill": "./SKILL.md",
     "./package.json": "./package.json"
@@ -135,10 +134,6 @@
       "./dev": {
         "types": "./dist/dev/index.d.ts",
         "import": "./dist/dev/index.js"
-      },
-      "./sanity": {
-        "types": "./dist/sanity/index.d.ts",
-        "import": "./dist/sanity/index.js"
       },
       "./scaffold": {
         "types": "./dist/scaffold/index.d.ts",

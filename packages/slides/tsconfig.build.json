@@ -14,6 +14,7 @@
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/__snapshots__/**",
+    "**/__tests__/**",
     "src/scaffold/template-base/**",
     "dist",
     "node_modules"
