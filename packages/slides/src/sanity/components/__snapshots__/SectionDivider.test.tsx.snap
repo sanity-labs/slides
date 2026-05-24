@@ -6,7 +6,7 @@ exports[`<SectionDivider/> goldens — blue > with eyebrow > blue with-eyebrow m
     {
       "identifier": "sanity-mark-black-on-blue",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-black-on-blue.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-mark-black-on-blue.png",
       "type": "logo",
     },
   ],
@@ -127,7 +127,7 @@ exports[`<SectionDivider/> goldens — blue > with eyebrow > blue with-eyebrow o
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-black-on-blue.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-mark-black-on-blue.png",
   },
   {
     "rect": {
@@ -179,7 +179,7 @@ exports[`<SectionDivider/> goldens — blue > without eyebrow > blue bare manife
     {
       "identifier": "sanity-mark-black-on-blue",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-black-on-blue.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-mark-black-on-blue.png",
       "type": "logo",
     },
   ],
@@ -270,7 +270,7 @@ exports[`<SectionDivider/> goldens — blue > without eyebrow > blue bare ops 1`
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-black-on-blue.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-mark-black-on-blue.png",
   },
   {
     "rect": {
@@ -328,7 +328,7 @@ exports[`<SectionDivider/> goldens — dot-grid > with eyebrow > dot-grid with-e
     {
       "identifier": "sanity-mark-white-on-black",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
       "type": "logo",
     },
   ],
@@ -462,7 +462,7 @@ exports[`<SectionDivider/> goldens — dot-grid > with eyebrow > dot-grid with-e
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
   },
   {
     "rect": {
@@ -520,7 +520,7 @@ exports[`<SectionDivider/> goldens — dot-grid > without eyebrow > dot-grid bar
     {
       "identifier": "sanity-mark-white-on-black",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
       "type": "logo",
     },
   ],
@@ -624,7 +624,7 @@ exports[`<SectionDivider/> goldens — dot-grid > without eyebrow > dot-grid bar
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
   },
   {
     "rect": {
@@ -676,7 +676,7 @@ exports[`<SectionDivider/> goldens — orange-red > with eyebrow > orange-red wi
     {
       "identifier": "sanity-mark-black-on-brand",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-black-on-brand.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-mark-black-on-brand.png",
       "type": "logo",
     },
   ],
@@ -797,7 +797,7 @@ exports[`<SectionDivider/> goldens — orange-red > with eyebrow > orange-red wi
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-black-on-brand.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-mark-black-on-brand.png",
   },
   {
     "rect": {
@@ -849,7 +849,7 @@ exports[`<SectionDivider/> goldens — orange-red > without eyebrow > orange-red
     {
       "identifier": "sanity-mark-black-on-brand",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-black-on-brand.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-mark-black-on-brand.png",
       "type": "logo",
     },
   ],
@@ -940,7 +940,7 @@ exports[`<SectionDivider/> goldens — orange-red > without eyebrow > orange-red
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-black-on-brand.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-mark-black-on-brand.png",
   },
   {
     "rect": {

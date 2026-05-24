@@ -6,13 +6,13 @@ exports[`<Closing/> goldens > minimal: no slide number > closing minimal manifes
     {
       "identifier": "sanity-closing-mark-black-on-brand",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-closing-mark-panel.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-closing-mark-panel.png",
       "type": "logo",
     },
     {
       "identifier": "sanity-lockup-black-on-brand",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-lockup-black-on-brand.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-lockup-black-on-brand.png",
       "type": "logo",
     },
   ],
@@ -65,7 +65,7 @@ exports[`<Closing/> goldens > minimal: no slide number > closing minimal ops 1`]
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-closing-mark-panel.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-closing-mark-panel.png",
   },
   {
     "rect": {
@@ -138,7 +138,7 @@ exports[`<Closing/> goldens > minimal: no slide number > closing minimal ops 1`]
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-lockup-black-on-brand.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-lockup-black-on-brand.png",
   },
 ]
 `;
@@ -149,13 +149,13 @@ exports[`<Closing/> goldens > with slide number > closing with-slide-number mani
     {
       "identifier": "sanity-closing-mark-black-on-brand",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-closing-mark-panel.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-closing-mark-panel.png",
       "type": "logo",
     },
     {
       "identifier": "sanity-lockup-black-on-brand",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-lockup-black-on-brand.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-lockup-black-on-brand.png",
       "type": "logo",
     },
   ],
@@ -209,7 +209,7 @@ exports[`<Closing/> goldens > with slide number > closing with-slide-number ops 
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-closing-mark-panel.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-closing-mark-panel.png",
   },
   {
     "rect": {
@@ -323,7 +323,7 @@ exports[`<Closing/> goldens > with slide number > closing with-slide-number ops 
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-lockup-black-on-brand.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-lockup-black-on-brand.png",
   },
 ]
 `;
@@ -340,7 +340,7 @@ exports[`<OneColumn/> goldens > full: with eyebrows + footer > one-column full m
     {
       "identifier": "sanity-mark-white-on-black",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
       "type": "logo",
     },
   ],
@@ -550,7 +550,7 @@ exports[`<OneColumn/> goldens > full: with eyebrows + footer > one-column full o
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
   },
   {
     "rect": {
@@ -608,7 +608,7 @@ exports[`<OneColumn/> goldens > minimal: title + body > one-column minimal manif
     {
       "identifier": "sanity-mark-white-on-black",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
       "type": "logo",
     },
   ],
@@ -818,7 +818,7 @@ exports[`<OneColumn/> goldens > minimal: title + body > one-column minimal ops 1
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
   },
   {
     "rect": {
@@ -870,7 +870,7 @@ exports[`<TitleAndBody/> goldens > full: with eyebrows + footer > title-and-body
     {
       "identifier": "sanity-mark-white-on-black",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
       "type": "logo",
     },
   ],
@@ -1067,7 +1067,7 @@ exports[`<TitleAndBody/> goldens > full: with eyebrows + footer > title-and-body
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
   },
   {
     "rect": {
@@ -1119,7 +1119,7 @@ exports[`<TitleAndBody/> goldens > minimal: title + body > title-and-body minima
     {
       "identifier": "sanity-mark-white-on-black",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
       "type": "logo",
     },
   ],
@@ -1316,7 +1316,7 @@ exports[`<TitleAndBody/> goldens > minimal: title + body > title-and-body minima
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
   },
   {
     "rect": {
@@ -1374,7 +1374,7 @@ exports[`<TitleAndGrid/> goldens > 2×1 grid of fields > title-and-grid 2x1 mani
     {
       "identifier": "sanity-mark-white-on-black",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
       "type": "logo",
     },
   ],
@@ -1663,7 +1663,7 @@ exports[`<TitleAndGrid/> goldens > 2×1 grid of fields > title-and-grid 2x1 ops 
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
   },
   {
     "rect": {
@@ -1721,7 +1721,7 @@ exports[`<TitleAndGrid/> goldens > 3×2 grid of fields > title-and-grid 3x2 mani
     {
       "identifier": "sanity-mark-white-on-black",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
       "type": "logo",
     },
   ],
@@ -2346,7 +2346,7 @@ exports[`<TitleAndGrid/> goldens > 3×2 grid of fields > title-and-grid 3x2 ops 
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-mark-white-on-black.png",
   },
   {
     "rect": {

@@ -6,7 +6,7 @@ exports[`<Cover/> goldens > full: title + subtitle + custom eyebrow > manifest 1
     {
       "identifier": "sanity-lockup-white-on-black",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-lockup-white-on-black.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-lockup-white-on-black.png",
       "type": "logo",
     },
   ],
@@ -172,7 +172,7 @@ exports[`<Cover/> goldens > full: title + subtitle + custom eyebrow > ops 1`] = 
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-lockup-white-on-black.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-lockup-white-on-black.png",
   },
   {
     "rect": {
@@ -224,7 +224,7 @@ exports[`<Cover/> goldens > minimum: title only > manifest 1`] = `
     {
       "identifier": "sanity-lockup-white-on-black",
       "resolvedAt": "2026-05-04T00:00:00.000Z",
-      "resolvedUrl": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-lockup-white-on-black.png",
+      "resolvedUrl": "<repo>/packages/slides/src/sanity/assets/sanity-lockup-white-on-black.png",
       "type": "logo",
     },
   ],
@@ -348,7 +348,7 @@ exports[`<Cover/> goldens > minimum: title only > ops 1`] = `
     },
     "slideId": "slide_1",
     "type": "createImage",
-    "url": "/Users/rostimelk/Projects/react-gslides/packages/slides/src/sanity/assets/sanity-lockup-white-on-black.png",
+    "url": "<repo>/packages/slides/src/sanity/assets/sanity-lockup-white-on-black.png",
   },
   {
     "rect": {
