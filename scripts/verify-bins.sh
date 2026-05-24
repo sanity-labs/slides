@@ -30,14 +30,19 @@ echo "== Step 2: pack + install + invoke =="
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 
-pnpm pack --pack-destination "$TMPDIR" >/dev/null 2>&1
+# Detect the tarball name dynamically so the script works on any version
+# (including the changesets Version Packages branch where the version is bumped).
+tgz_path="$(pnpm pack --pack-destination "$TMPDIR" 2>/dev/null | tail -1)"
+tgz_basename="$(basename "$tgz_path")"
+test -f "$TMPDIR/$tgz_basename" || { echo "FAIL: pnpm pack did not produce a tarball (got: $tgz_path)" >&2; exit 1; }
+echo "  packed: $tgz_basename"
 
 cat > "$TMPDIR/package.json" <<EOF
 {
   "name": "verify-bins-fixture",
   "private": true,
   "dependencies": {
-    "@sanity-labs/slides": "file:./sanity-labs-slides-0.0.0.tgz",
+    "@sanity-labs/slides": "file:./$tgz_basename",
     "zod": "^3.23.0"
   }
 }
