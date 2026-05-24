@@ -11,31 +11,26 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-PKG_DIR="packages/slides"
-DIST_CLI="$PKG_DIR/dist/cli.js"
-DIST_DEV_BIN="$PKG_DIR/dist/dev/bin/slides-dev.mjs"
-SKILL="$PKG_DIR/SKILL.md"
-
 echo "== Step 1: static artifact checks =="
-test -f "$DIST_CLI"          || { echo "FAIL: $DIST_CLI missing — run \`pnpm build\` first" >&2; exit 1; }
-test -f "$DIST_DEV_BIN"      || { echo "FAIL: $DIST_DEV_BIN missing — copy-static-assets.mjs didn't run" >&2; exit 1; }
-test -f "$SKILL"             || { echo "FAIL: $SKILL missing — must ship with the package" >&2; exit 1; }
-test -d "$PKG_DIR/dist/scaffold/template-base" || { echo "FAIL: scaffold template-base not copied to dist/" >&2; exit 1; }
+test -f dist/cli.js                 || { echo "FAIL: dist/cli.js missing — run \`pnpm build\` first" >&2; exit 1; }
+test -f dist/dev/bin/slides-dev.mjs || { echo "FAIL: dist/dev/bin/slides-dev.mjs missing" >&2; exit 1; }
+test -f SKILL.md                    || { echo "FAIL: SKILL.md missing" >&2; exit 1; }
+test -d dist/scaffold/template-base || { echo "FAIL: scaffold template-base not copied to dist/" >&2; exit 1; }
 
-shebang="$(head -n 1 "$DIST_CLI")"
-[[ "$shebang" == "#!/usr/bin/env node" ]] || { echo "FAIL: $DIST_CLI missing node shebang (got: $shebang)" >&2; exit 1; }
+shebang="$(head -n 1 dist/cli.js)"
+[[ "$shebang" == "#!/usr/bin/env node" ]] || { echo "FAIL: dist/cli.js missing node shebang (got: $shebang)" >&2; exit 1; }
 
-declared_bin="$(node -e "const p=require('./$PKG_DIR/package.json'); process.stdout.write(p.bin.slidesctl||'');")"
-[[ "$declared_bin" == "./dist/cli.js" ]] || { echo "FAIL: $PKG_DIR/package.json bin.slidesctl = '$declared_bin'; expected './dist/cli.js'" >&2; exit 1; }
+declared_bin="$(node -e "const p=require('./package.json'); process.stdout.write(p.bin.slidesctl||'');")"
+[[ "$declared_bin" == "./dist/cli.js" ]] || { echo "FAIL: package.json bin.slidesctl = '$declared_bin'; expected './dist/cli.js'" >&2; exit 1; }
 
-node -e "const p=require('./$PKG_DIR/package.json'); if (!(p.files||[]).includes('SKILL.md')) { console.error('FAIL: SKILL.md not in package.json files[]'); process.exit(1); }"
-echo "  ok: dist/cli.js (shebang + bin field), dist/dev/bin/slides-dev.mjs, SKILL.md, scaffold template-base"
+node -e "const p=require('./package.json'); if (!(p.files||[]).includes('SKILL.md')) { console.error('FAIL: SKILL.md not in package.json files[]'); process.exit(1); }"
+echo "  ok: dist/cli.js, dist/dev/bin/slides-dev.mjs, SKILL.md, scaffold template-base"
 
 echo "== Step 2: pack + install + invoke =="
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 
-(cd "$PKG_DIR" && pnpm pack --pack-destination "$TMPDIR" >/dev/null 2>&1)
+pnpm pack --pack-destination "$TMPDIR" >/dev/null 2>&1
 
 cat > "$TMPDIR/package.json" <<EOF
 {

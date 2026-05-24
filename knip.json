@@ -4,30 +4,15 @@
     "exports": "off",
     "types": "off"
   },
-  "workspaces": {
-    ".": {
-      "project": []
-    },
-    "packages/slides": {
-      // Published library: exports are consumed externally, not in-workspace.
-      // The scaffold's template-base/ is a static asset (stamped into a fresh
-      // target dir at scaffold time), not an import target.
-      // The two dev-server files below are loaded by Vite at dev time (browser
-      // bundle + SSR stub) — knip can't trace those edges.
-      // The `slides-dev` shim spawns `slides-dev.ts` via tsx as a dynamic path
-      // string; declare it explicitly so knip walks the dev-server chain.
-      // The test fixture template is loaded by the smoke / MCP / preview tests.
-      "entry": [
-        "src/cli.ts",
-        "src/dev/bin/slides-dev.mjs",
-        "src/dev/bin/slides-dev.ts",
-        "src/dev/dev-server/client/entry.tsx",
-        "src/dev/dev-server/server-only-stub.ts",
-        "src/__tests__/fixtures/test-template/index.tsx"
-      ],
-      "ignore": ["src/scaffold/template-base/**"],
-      "ignoreDependencies": ["tailwindcss"],
-      "project": ["src/**/*.{ts,tsx,mjs}", "scripts/**/*.{mjs,js}"]
-    }
-  }
+  "entry": [
+    "src/cli.ts",
+    "src/dev/bin/slides-dev.mjs",
+    "src/dev/bin/slides-dev.ts",
+    "src/dev/dev-server/client/entry.tsx",
+    "src/dev/dev-server/server-only-stub.ts",
+    "src/__tests__/fixtures/test-template/index.tsx"
+  ],
+  "ignore": ["src/scaffold/template-base/**"],
+  "ignoreDependencies": ["tailwindcss"],
+  "project": ["src/**/*.{ts,tsx,mjs}", "scripts/**/*.{mjs,js}"]
 }

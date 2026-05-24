@@ -200,25 +200,20 @@ Then point Claude at it the same way as any other template:
 ## Repo layout
 
 ```text
-packages/
-└── slides/                       # the single published package
-    ├── package.json              # single source of truth (exports, bin, deps)
-    ├── README.md
-    ├── SKILL.md                  # shipped — served by `slidesctl skill`
-    ├── src/
-    │   ├── index.ts              # root: renderer + Template + primitives
-    │   ├── cli.ts                # `slidesctl` bin
-    │   ├── core/                 # renderer + PPTX runtime
-    │   ├── mcp/                  # MCP server framework
-    │   ├── dev/                  # browser dev viewer (incl. slides-dev bin)
-    │   ├── scaffold/             # scaffold logic + template-base/
-    │   └── __tests__/            # framework smoke tests + synthetic fixture template
-    └── scripts/
-        └── copy-static-assets.mjs
+src/
+├── index.ts              # root: renderer + Template + primitives
+├── cli.ts                # `slidesctl` bin
+├── core/                 # renderer + PPTX runtime
+├── mcp/                  # MCP server framework
+├── dev/                  # browser dev viewer (incl. slides-dev bin)
+├── scaffold/             # scaffold logic + template-base/
+└── __tests__/            # framework smoke tests + synthetic fixture template
 
+scripts/copy-static-assets.mjs    copies non-TS assets (CSS, template-base, shims) into dist/
 docs/                             architecture, testing strategy
 .changeset/                       changesets config + queued release notes
 .github/workflows/                CI + release pipeline
+SKILL.md                          LLM skill — served by `slidesctl skill`
 ```
 
 ---
