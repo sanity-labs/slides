@@ -12,7 +12,7 @@
     "src/dev/dev-server/server-only-stub.ts",
     "src/__tests__/fixtures/test-template/index.tsx"
   ],
-  "ignore": ["src/scaffold/template-base/**"],
+  "ignore": ["src/scaffold/template-base/**", "src/scaffold/deck-base/**"],
   "ignoreDependencies": ["tailwindcss"],
   "project": ["src/**/*.{ts,tsx,mjs}", "scripts/**/*.{mjs,js}"]
 }

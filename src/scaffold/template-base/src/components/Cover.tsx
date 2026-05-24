@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { Slide, Box, Text } from '../../../../core/index.js';
+import { Slide, Box, Text } from '@sanity-labs/slides';
 import { z } from 'zod';
 
 export const CoverSchema = z

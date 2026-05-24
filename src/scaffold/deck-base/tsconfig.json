@@ -7,21 +7,14 @@
     "jsx": "react-jsx",
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "noFallthroughCasesInSwitch": true,
     "isolatedModules": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
-    "baseUrl": ".",
-    "paths": {
-      "@sanity-labs/slides": ["./src/index.ts"],
-      "@sanity-labs/slides/mcp": ["./src/mcp/index.ts"],
-      "@sanity-labs/slides/dev": ["./src/dev/index.ts"],
-      "@sanity-labs/slides/scaffold": ["./src/scaffold/index.ts"]
-    }
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/tsc/buildinfo.json"
   },
-  "include": ["src/**/*", "test/**/*"]
+  "include": ["src/**/*"]
 }

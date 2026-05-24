@@ -137,15 +137,19 @@ const makeHarness = async (): Promise<Harness> => {
 // ---------------------------------------------------------------------------
 
 describe('createSlideServer — tool registration', () => {
-  test('exposes slides_list, slides_create, plus one per slide type', async () => {
+  test('exposes slides_list, slides_create, the code-gen tools, plus one per slide type', async () => {
     const h = await makeHarness();
     try {
       const list = await h.client.listTools();
       const names = list.tools.map((t) => t.name).sort();
       expect(names).toEqual([
+        'slides_add_component',
         'slides_add_cover',
         'slides_add_two_column',
+        'slides_build',
         'slides_create',
+        'slides_create_deck',
+        'slides_edit_component',
         'slides_list',
       ]);
     } finally {

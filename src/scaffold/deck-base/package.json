@@ -2,20 +2,15 @@
   "name": "__NAME__",
   "version": "0.0.0",
   "private": true,
-  "description": "A @sanity-labs/slides template.",
+  "description": "An agent-authored deck project. Holds custom slide components built on @sanity-labs/slides primitives.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "files": [
-    "dist",
-    "src"
-  ],
   "scripts": {
-    "dev": "slides-dev",
-    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "serve": "slidesctl serve --template ./dist/index.js",
-    "generate": "slidesctl generate --template ./dist/index.js"
+    "dev": "slides-dev",
+    "serve": "slidesctl serve --template ./src/index.ts",
+    "generate": "slidesctl generate --template ./src/index.ts"
   },
   "peerDependencies": {
     "react": "^19.0.0"
