@@ -14,5 +14,5 @@
   ],
   "ignore": ["src/scaffold/template-base/**", "src/scaffold/deck-base/**"],
   "ignoreDependencies": ["tailwindcss"],
-  "project": ["src/**/*.{ts,tsx,mjs}", "scripts/**/*.{mjs,js}"]
+  "project": ["src/**/*.{ts,tsx,mjs}", "scripts/**/*.{mjs,js}", "test/**/*.{ts,tsx,mjs}"]
 }

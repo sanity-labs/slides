@@ -25,7 +25,7 @@ The first three real harness runs found:
   Unit tests didn't catch it because they only checked the `.pptx` magic
   bytes, not its slide contents.
 - A **missing template-inheritance feature** Claude noticed immediately:
-  *"the deck is empty — Cover from the original template isn't here."*
+  _"the deck is empty — Cover from the original template isn't here."_
   Now the deck's components are merged on top of the brand template at
   render time instead of clobbering it.
 - An **error-message ergonomics bug** where Claude burned 24 turns and
@@ -146,7 +146,7 @@ genuinely broken.
 
 1. Open `scenarios.ts` and add a new `Scenario` export.
 2. Write a `userPrompt` that mirrors how a real user would phrase the
-   request. Don't tell Claude *which tools* to call; the whole point is
+   request. Don't tell Claude _which tools_ to call; the whole point is
    that it picks them from the descriptions + SKILL.
 3. In `expect`, assert on **outcomes** (the right tool was called, the
    `.pptx` exists, a custom component encodes the requested values), not
@@ -162,14 +162,14 @@ fresh output dir. Avoid scenarios that depend on each other.
 
 Rough numbers from real runs at the time of writing:
 
-| Scenario | Turns | Tokens (in→out) | ~Cost |
-| --- | --- | --- | --- |
-| tier1-single-slide | 2-3 | 25k → 0.3k | ~$0.40 |
-| tier1-multi-slide | 5-6 | 55k → 2.5k | ~$1.00 |
-| tier2-pitch-deck (happy) | 5-7 | 60k → 6k | ~$1.40 |
-| tier2-pitch-deck (loops) | 24+ | 600k+ → 30k | ~$10+ |
-| tier2-recovers-from-typecheck | 6-7 | 55k → 2k | ~$1.00 |
-| brand-lock-respect | 5-6 | 55k → 1.5k | ~$1.00 |
+| Scenario                      | Turns | Tokens (in→out) | ~Cost  |
+| ----------------------------- | ----- | --------------- | ------ |
+| tier1-single-slide            | 2-3   | 25k → 0.3k      | ~$0.40 |
+| tier1-multi-slide             | 5-6   | 55k → 2.5k      | ~$1.00 |
+| tier2-pitch-deck (happy)      | 5-7   | 60k → 6k        | ~$1.40 |
+| tier2-pitch-deck (loops)      | 24+   | 600k+ → 30k     | ~$10+  |
+| tier2-recovers-from-typecheck | 6-7   | 55k → 2k        | ~$1.00 |
+| brand-lock-respect            | 5-6   | 55k → 1.5k      | ~$1.00 |
 
 Full run with the current scenarios: ~$4-7 when things work, more when
 the harness is uncovering a real bug. If you're iterating on tool
