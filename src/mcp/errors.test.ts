@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { z } from 'zod';
-import { errorResult, formatZodIssue, zodErrorResult } from './errors.js';
+import { errorResult, formatZodIssue, parseErrorPayload, zodErrorResult } from './errors.js';
 
 describe('formatZodIssue', () => {
   test('formats a path-bearing issue', () => {
@@ -27,7 +27,7 @@ describe('formatZodIssue', () => {
 });
 
 describe('zodErrorResult', () => {
-  test('returns isError: true with bullets and a hint', () => {
+  test('returns isError + agent-readable text + a machine-readable payload trailer', () => {
     const parse = z.object({ x: z.string() }).safeParse({});
     if (parse.success) throw new Error('expected failure');
     const result = zodErrorResult('Validation error in foo:', parse.error, 'Try again.');
@@ -36,16 +36,35 @@ describe('zodErrorResult', () => {
     expect(text).toMatch(/Validation error in foo/);
     expect(text).toMatch(/x:/);
     expect(text).toMatch(/Try again\./);
-    expect(result.structuredContent.error.code).toBe('validation_error');
-    expect(result.structuredContent.error.issues?.[0]?.path).toBe('x');
+
+    // No structuredContent on errors — the MCP SDK validates against the
+    // tool's outputSchema regardless of isError, so we keep error info in
+    // text only. See the comment at the top of errors.ts.
+    expect(
+      (result as { structuredContent?: unknown }).structuredContent,
+      'errors must not set structuredContent',
+    ).toBeUndefined();
+
+    const payload = parseErrorPayload(text);
+    expect(payload?.code).toBe('validation_error');
+    expect(payload?.issues?.[0]?.path).toBe('x');
   });
 });
 
 describe('errorResult', () => {
-  test('builds a generic actionable error', () => {
+  test('emits a parseable payload trailer + no structuredContent', () => {
     const result = errorResult('boom', 'Something bad. Retry later.');
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toBe('Something bad. Retry later.');
-    expect(result.structuredContent.error.code).toBe('boom');
+    expect((result as { structuredContent?: unknown }).structuredContent).toBeUndefined();
+
+    const text = result.content[0]?.text ?? '';
+    expect(text).toMatch(/Something bad. Retry later\./);
+    expect(parseErrorPayload(text)?.code).toBe('boom');
+  });
+});
+
+describe('parseErrorPayload', () => {
+  test('returns undefined when no trailer is present', () => {
+    expect(parseErrorPayload('plain text with no trailer')).toBeUndefined();
   });
 });

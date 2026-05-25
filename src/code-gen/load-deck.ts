@@ -17,17 +17,28 @@
  * module cache treats each load as a fresh URL.
  */
 
-import { pathToFileURL } from 'node:url';
+import { dirname, resolve as resolvePath } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Template } from '../core/index.js';
 import { linkDeckDeps } from './link-deps.js';
 
 let registered = false;
 
-/** Register tsx's ESM loader exactly once per process. */
+/**
+ * Register tsx's ESM loader once per process, pointed at the package's
+ * bundled `runtime-tsconfig.json`. The explicit tsconfig forces the
+ * automatic JSX runtime regardless of cwd — without it, esbuild's default
+ * is classic JSX and any deck component using JSX would fail at runtime
+ * with "React is not defined".
+ */
 const ensureTsxRegistered = async (): Promise<void> => {
   if (registered) return;
+  // From either src/code-gen/load-deck.ts (dev) or dist/code-gen/load-deck.js
+  // (published), two levels up is the package root.
+  const here = dirname(fileURLToPath(import.meta.url));
+  const tsconfig = resolvePath(here, '..', '..', 'runtime-tsconfig.json');
   const { register } = await import('tsx/esm/api');
-  register();
+  register({ tsconfig });
   registered = true;
 };
 

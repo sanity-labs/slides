@@ -15,7 +15,22 @@ import {
   type Template,
   type TemplateComponent,
 } from '../core/index.js';
+import { parseErrorPayload, type ToolErrorPayload } from './errors.js';
 import { createSlideServer, type SlideServer } from './server.js';
+
+/**
+ * Pull the machine-readable error payload out of a tool's first text
+ * content block. Mirrors what an MCP client would do: errors carry no
+ * `structuredContent` (since outputSchema would reject it on the wire),
+ * so the structured info lives in a trailer at the end of the text.
+ */
+const extractError = (result: unknown): ToolErrorPayload => {
+  const content = (result as { content?: ReadonlyArray<unknown> }).content ?? [];
+  const first = content[0] as { text?: string } | undefined;
+  const payload = parseErrorPayload(first?.text ?? '');
+  if (!payload) throw new Error('expected an error-payload trailer in the tool result');
+  return payload;
+};
 
 // ---------------------------------------------------------------------------
 // A small template-agnostic test fixture. Two components, both return real <Slide>s.
@@ -258,10 +273,10 @@ describe('slides_validate', () => {
         arguments: { component: 'NotARealType', props: {} },
       });
       expect(result.isError).toBe(true);
-      const sc = result.structuredContent as { error: { code: string; message: string } };
-      expect(sc.error.code).toBe('unknown_component');
-      expect(sc.error.message).toMatch(/Cover/);
-      expect(sc.error.message).toMatch(/slides_list/);
+      const err = extractError(result);
+      expect(err.code).toBe('unknown_component');
+      expect(err.message).toMatch(/Cover/);
+      expect(err.message).toMatch(/slides_list/);
     } finally {
       await h.close();
     }
@@ -275,11 +290,9 @@ describe('slides_validate', () => {
         arguments: { component: 'Cover', props: { subtitle: 'no title' } },
       });
       expect(result.isError).toBe(true);
-      const sc = result.structuredContent as {
-        error: { code: string; issues: Array<{ path: string }> };
-      };
-      expect(sc.error.code).toBe('validation_error');
-      expect(sc.error.issues.some((i) => i.path === 'title')).toBe(true);
+      const err = extractError(result);
+      expect(err.code).toBe('validation_error');
+      expect(err.issues?.some((i) => i.path === 'title')).toBe(true);
     } finally {
       await h.close();
     }
@@ -308,6 +321,8 @@ describe('slides_create', () => {
       // PPTX is a ZIP container. Check magic number.
       expect(buf[0]).toBe(0x50);
       expect(buf[1]).toBe(0x4b);
+      // Empty-deck-shell guard: confirm there's an actual slide inside.
+      expect(buf.toString('latin1')).toContain('ppt/slides/slide1.xml');
     } finally {
       await h.close();
     }
@@ -324,14 +339,12 @@ describe('slides_create', () => {
         },
       });
       expect(result.isError).toBe(true);
-      const sc = result.structuredContent as {
-        error: { code: string; message: string; issues: Array<{ path: string }> };
-      };
-      expect(sc.error.code).toBe('validation_error');
-      expect(sc.error.message).toMatch(/slides\[0\]/);
-      expect(sc.error.message).toMatch(/title/);
-      expect(sc.error.message).toMatch(/Fix the listed fields and retry/);
-      expect(sc.error.issues.some((i) => i.path === 'title')).toBe(true);
+      const err = extractError(result);
+      expect(err.code).toBe('validation_error');
+      expect(err.message).toMatch(/slides\[0\]/);
+      expect(err.message).toMatch(/title/);
+      expect(err.message).toMatch(/Fix the listed fields and retry/);
+      expect(err.issues?.some((i) => i.path === 'title')).toBe(true);
     } finally {
       await h.close();
     }
@@ -348,12 +361,12 @@ describe('slides_create', () => {
         },
       });
       expect(result.isError).toBe(true);
-      const sc = result.structuredContent as { error: { code: string; message: string } };
-      expect(sc.error.code).toBe('unknown_component');
-      expect(sc.error.message).toMatch(/NonExistent/);
-      expect(sc.error.message).toMatch(/Cover/);
-      expect(sc.error.message).toMatch(/TwoColumn/);
-      expect(sc.error.message).toMatch(/slides_list/);
+      const err = extractError(result);
+      expect(err.code).toBe('unknown_component');
+      expect(err.message).toMatch(/NonExistent/);
+      expect(err.message).toMatch(/Cover/);
+      expect(err.message).toMatch(/TwoColumn/);
+      expect(err.message).toMatch(/slides_list/);
     } finally {
       await h.close();
     }
@@ -370,8 +383,7 @@ describe('slides_create', () => {
         },
       });
       expect(result.isError).toBe(true);
-      const sc = result.structuredContent as { error: { code: string } };
-      expect(sc.error.code).toBe('validation_error');
+      expect(extractError(result).code).toBe('validation_error');
     } finally {
       await h.close();
     }

@@ -45,7 +45,7 @@ import {
   editComponent,
   type ComponentOpResult,
 } from '../code-gen/index.js';
-import type { SlidesRuntime, Template } from '../core/index.js';
+import { CANVAS_16_9, type SlidesRuntime, type Template } from '../core/index.js';
 import { errorResult, zodErrorResult } from './errors.js';
 import { renderSlides } from './render.js';
 
@@ -87,7 +87,7 @@ export const createSlideServer = (config: SlideServerConfig): SlideServer => {
     version: '0.1.0',
   };
 
-  const state: ServerState = { active: template, activeDeckPath: undefined };
+  const state: ServerState = { base: template, deck: undefined };
 
   const mcp = new McpServer(serverInfo);
 
@@ -99,7 +99,7 @@ export const createSlideServer = (config: SlideServerConfig): SlideServer => {
   return {
     mcp,
     get activeTemplate() {
-      return state.active;
+      return effectiveTemplate(state);
     },
     connect: (transport) => mcp.connect(transport),
     start: async (options) => {
@@ -114,11 +114,38 @@ export const createSlideServer = (config: SlideServerConfig): SlideServer => {
   };
 };
 
-/** Internal mutable state held by the server. */
+/**
+ * Internal mutable state held by the server.
+ *
+ * `base` is the brand template the server was started with — it stays
+ * untouched for the lifetime of the process. `deck` is whatever
+ * agent-authored deck is currently loaded (if any). Tools render against
+ * the *effective* template, which is `base` plus the deck's components
+ * layered on top — see {@link effectiveTemplate}.
+ */
 type ServerState = {
-  active: Template;
-  activeDeckPath: string | undefined;
+  readonly base: Template;
+  deck: { readonly template: Template; readonly path: string } | undefined;
 };
+
+/**
+ * Merge the brand template's slide vocabulary with whatever deck is
+ * currently loaded. Deck components shadow brand components on name
+ * collision (lets the agent override a brand slide if the user asks
+ * for a variant). Brand fonts / colors / canvas always win — the deck
+ * never overrides the brand lock.
+ */
+const effectiveTemplate = (state: ServerState): Template => {
+  if (!state.deck) return state.base;
+  return {
+    ...state.base,
+    components: { ...state.base.components, ...state.deck.template.components },
+  };
+};
+
+/** Names of every component contributed by the loaded deck (empty when no deck). */
+const deckComponentNames = (state: ServerState): ReadonlySet<string> =>
+  new Set(state.deck ? Object.keys(state.deck.template.components) : []);
 
 // ---------------------------------------------------------------------------
 // slides_list
@@ -148,6 +175,13 @@ const LIST_OUTPUT_SHAPE = {
       z.object({
         name: z.string().describe('Slide-type name, e.g. "Cover".'),
         description: z.string().describe('When to use this slide type.'),
+        source: z
+          .enum(['template', 'deck'])
+          .describe(
+            'Where this slide type comes from. "template" entries live in the read-only ' +
+              'brand template; "deck" entries were written into the active deck by ' +
+              'slides_add_component and can be modified with slides_edit_component.',
+          ),
         inputJsonSchema: z
           .record(z.unknown())
           .optional()
@@ -157,7 +191,7 @@ const LIST_OUTPUT_SHAPE = {
           ),
       }),
     )
-    .describe('Every slide type the active template exposes.'),
+    .describe('Every slide type the active template exposes (brand + deck merged).'),
 };
 
 const registerListTool = (mcp: McpServer, state: ServerState): void => {
@@ -184,21 +218,26 @@ const registerListTool = (mcp: McpServer, state: ServerState): void => {
       },
     },
     async ({ detail }) => {
-      const active = state.active;
+      const effective = effectiveTemplate(state);
+      const fromDeck = deckComponentNames(state);
       const wantSchemas = detail === 'detailed';
-      const slides = Object.entries(active.components).map(([name, c]) => ({
+      const slides = Object.entries(effective.components).map(([name, c]) => ({
         name,
         description: c.description,
+        source: (fromDeck.has(name) ? 'deck' : 'template') as 'template' | 'deck',
         ...(wantSchemas ? { inputJsonSchema: zodToJsonSchema(c.schema, JSON_SCHEMA_OPTIONS) } : {}),
       }));
-      const lines = [`Template: ${active.name}`];
-      if (state.activeDeckPath) lines.push(`Deck:     ${state.activeDeckPath}`);
+      const lines = [`Template: ${effective.name}`];
+      if (state.deck) lines.push(`Deck:     ${state.deck.path}`);
       lines.push('');
       lines.push('Available slide types:');
       if (slides.length === 0) {
         lines.push('  (none — call slides_add_component to add one.)');
       } else {
-        for (const s of slides) lines.push(`  • ${s.name} — ${s.description}`);
+        for (const s of slides) {
+          const tag = s.source === 'deck' ? ' [deck]' : '';
+          lines.push(`  • ${s.name}${tag} — ${s.description}`);
+        }
       }
       if (!wantSchemas && slides.length > 0) {
         lines.push('');
@@ -210,8 +249,8 @@ const registerListTool = (mcp: McpServer, state: ServerState): void => {
       return {
         content: [{ type: 'text' as const, text: lines.join('\n') }],
         structuredContent: {
-          template: active.name,
-          deckPath: state.activeDeckPath ?? null,
+          template: effective.name,
+          deckPath: state.deck?.path ?? null,
           slides,
         },
       };
@@ -261,13 +300,13 @@ const registerValidateTool = (mcp: McpServer, state: ServerState): void => {
       },
     },
     async ({ component, props }) => {
-      const active = state.active;
-      const entry = active.components[component];
+      const effective = effectiveTemplate(state);
+      const entry = effective.components[component];
       if (!entry) {
-        const known = Object.keys(active.components).sort().join(', ') || '(none)';
+        const known = Object.keys(effective.components).sort().join(', ') || '(none)';
         return errorResult(
           'unknown_component',
-          `Unknown slide type "${component}". Known types in template "${active.name}": ${known}. ` +
+          `Unknown slide type "${component}". Known types in template "${effective.name}": ${known}. ` +
             `Call slides_list to refresh.`,
         );
       }
@@ -342,7 +381,7 @@ const registerCreateTool = (mcp: McpServer, runtime: SlidesRuntime, state: Serve
     },
     async (input) => {
       const result = await renderSlides({
-        template: state.active,
+        template: effectiveTemplate(state),
         runtime,
         title: input.title,
         slides: input.slides,
@@ -451,11 +490,10 @@ const registerCodeGenTools = (mcp: McpServer, state: ServerState): void => {
     async ({ dir, name }) => {
       try {
         const result = await createDeck({ dir, ...(name ? { name } : {}) });
-        state.active = result.template;
-        state.activeDeckPath = result.deckPath;
+        state.deck = { template: result.template, path: result.deckPath };
         return successResult({
           deckPath: result.deckPath,
-          template: result.template,
+          template: effectiveTemplate(state),
           typecheck: { ok: true, summary: 'Scaffolded a fresh deck.' },
         });
       } catch (err) {
@@ -490,7 +528,7 @@ const registerCodeGenTools = (mcp: McpServer, state: ServerState): void => {
       try {
         const result = await addComponent({ deckPath, name, source });
         adoptOpResult(state, result);
-        return successResult(result);
+        return successResult({ ...result, template: effectiveTemplate(state) });
       } catch (err) {
         return errorResult('add_component_failed', errMessage(err));
       }
@@ -522,7 +560,7 @@ const registerCodeGenTools = (mcp: McpServer, state: ServerState): void => {
       try {
         const result = await editComponent({ deckPath, name, source });
         adoptOpResult(state, result);
-        return successResult(result);
+        return successResult({ ...result, template: effectiveTemplate(state) });
       } catch (err) {
         return errorResult('edit_component_failed', errMessage(err));
       }
@@ -554,7 +592,7 @@ const registerCodeGenTools = (mcp: McpServer, state: ServerState): void => {
       try {
         const result = await buildDeck(deckPath);
         adoptOpResult(state, result);
-        return successResult(result);
+        return successResult({ ...result, template: effectiveTemplate(state) });
       } catch (err) {
         return errorResult('build_failed', errMessage(err));
       }
@@ -563,9 +601,34 @@ const registerCodeGenTools = (mcp: McpServer, state: ServerState): void => {
 };
 
 const adoptOpResult = (state: ServerState, result: ComponentOpResult): void => {
-  state.activeDeckPath = result.deckPath;
-  if (result.template) state.active = result.template;
+  if (result.template) {
+    state.deck = { template: result.template, path: result.deckPath };
+  } else if (state.deck === undefined || state.deck.path !== result.deckPath) {
+    // Typecheck failed before we could reload the deck template, but we
+    // still want subsequent calls to address the same deck path.
+    state.deck = state.deck ?? {
+      template: emptyDeckPlaceholder(result.deckPath),
+      path: result.deckPath,
+    };
+  }
 };
+
+/**
+ * When a code-gen op leaves the deck in a broken state (typecheck failed,
+ * template didn't reload), we still want the server to remember which deck
+ * the agent is working on so the next add/edit/build targets it. Use a
+ * placeholder template carrying just the deck name — it'll be replaced on
+ * the next successful reload.
+ */
+const emptyDeckPlaceholder = (deckPath: string): Template => ({
+  name: deckPath.split('/').pop() ?? 'deck',
+  canvas: CANVAS_16_9,
+  fonts: { display: [], body: [], mono: [] },
+  colors: {},
+  typography: {},
+  spacing: {},
+  components: {},
+});
 
 const successResult = (
   input:

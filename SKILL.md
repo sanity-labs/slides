@@ -50,8 +50,8 @@ Do **not** invent slide content with `Box`/`Text` primitives directly in arbitra
 
 Use this when no prebuilt slide type fits, or when the user explicitly wants something the template doesn't cover.
 
-1. **Scaffold.** `slides_create_deck({ dir: "<path>" })`. The directory must be empty or non-existent. The returned `deckPath` is what every other code-gen tool takes. After this call the active template is the (initially empty) deck — `slides_list` reflects that.
-2. **Discover what's there.** `slides_list` again. The deck starts empty until you add components.
+1. **Scaffold.** `slides_create_deck({ dir: "<path>" })`. The directory must be empty or non-existent. The returned `deckPath` is what every other code-gen tool takes. After this call the active template **inherits the brand template's components** — every prebuilt slide type the server started with is still usable in `slides_create`. The deck itself starts with zero custom components; whatever you add via `slides_add_component` layers on top of (and can shadow) the brand set.
+2. **Discover what's there.** Call `slides_list` again. Entries tagged `[deck]` came from your own code-gen calls and can be edited with `slides_edit_component`; everything else is brand-template (read-only). Pass `detail: "detailed"` to see the schemas.
 3. **Write a component.** `slides_add_component({ deckPath, name, source })`. `name` is PascalCase (`RevenueChart`, `TeamGrid`). `source` is full TSX. Canonical shape:
 
    ```tsx
@@ -100,6 +100,13 @@ Use this when no prebuilt slide type fits, or when the user explicitly wants som
    - **Imports are restricted to `@sanity-labs/slides`, `react`, and `zod`.** This is enforced server-side — any other import (including Node built-ins like `fs`, external libraries like `lodash`, or relative paths to other files) causes the call to fail before any file is written. Compute everything else inline.
    - The component must return a `<Slide>` element. The canvas is 960pt × 540pt.
 
+   **JSX layout rules (the reconciler is strict about these — violating them costs you a typecheck round-trip):**
+   - `<Slide>` accepts only `<Box>` and `<Image>` children. Direct strings, fragments, `<Text>`, or anything else at the slide level is rejected.
+   - `<Box>` accepts a `rect` prop (`{ x, y, w, h }` in points, all four required) and an optional `fill`. Its **children may only be `<Text>`, `<Color>`, or string literals.** A `<Box>` cannot contain another `<Box>` — even one. If you want overlapping rectangles, make them siblings directly under `<Slide>` with different `rect` values.
+   - `<Text>` lives inside a `<Box>`. Use `textStyle` for typography. `fontFamily` accepts only the three role tokens `"display" | "body" | "mono"` (defined by the brand template) — not literal family names.
+   - To draw two visual layers (e.g. a background card behind a metric), use two `<Box>` siblings at the slide level with overlapping rects, not nested boxes.
+   - When a reconciler error mentions `Slide[N] > Box[M] @ (x:..., y:..., w:..., h:...)`, the rect coordinates uniquely identify the offending element in your source — grep for `rect={{ x: X, y: Y, w: W, h: H }}` and fix that line, not the one at array index M.
+
 4. **Handle typecheck errors.** `slides_add_component` always ends with a typecheck. If it fails, the response carries a `summary` with up to 20 file/line/code errors (cascades are truncated with a hint to fix the listed ones first). Read it, call `slides_edit_component({ deckPath, name, source })` with the corrected source, repeat. If the same error survives a couple of fixes, surface it to the user rather than spinning.
 
 5. **Render.** Once `slides_list` shows the components you need, call `slides_create({ title, slides: [...] })`. Mix prebuilt types and your custom ones freely.
@@ -138,7 +145,7 @@ User: _"Make a Q4 review with a revenue bar chart, two metric grids, a quote fro
 
 1. `slides_list` — template has `Cover`, `TitleAndGrid`, `Quote`, `Closing` — but no chart slide.
 2. `slides_list({ detail: "detailed" })` — get JSON Schemas for `Cover`, `TitleAndGrid`, `Quote`, `Closing`.
-3. `slides_create_deck({ dir: "~/slides/q4-review" })`. The active template swaps to the (initially empty) deck.
+3. `slides_create_deck({ dir: "~/slides/q4-review" })`. The deck inherits all four brand slide types; you can use them in `slides_create` immediately.
 4. `slides_add_component({ deckPath, name: "RevenueChart", source: ... })` with the canonical chart shape above.
 5. If typecheck fails, `slides_edit_component` with a fix. Repeat until ok.
 6. `slides_list` confirms `RevenueChart` is in the active template.

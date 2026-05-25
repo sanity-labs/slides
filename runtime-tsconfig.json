@@ -1,0 +1,14 @@
+{
+  "//": "Bundled tsconfig the CLI hands to tsx's loader when registering, so any .ts/.tsx template — brand template OR agent-authored deck — transpiles with the automatic JSX runtime regardless of the spawn cwd. Decks ship their own tsconfig for tsc/typecheck; this file is runtime-only.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": false
+  }
+}

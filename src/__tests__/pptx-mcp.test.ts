@@ -50,6 +50,10 @@ describe('slides_create integration (fixture template)', () => {
       const buf = await fs.readFile(out.filePath);
       expect(buf[0]).toBe(0x50);
       expect(buf[1]).toBe(0x4b);
+      // Guard against the empty-deck-shell regression: the renderer used to
+      // silently emit a .pptx with no slide files when primitives crossed
+      // module instances. See `markerKind` in `src/core/components.ts`.
+      expect(buf.toString('latin1')).toContain('ppt/slides/slide1.xml');
 
       await server.close();
     } finally {

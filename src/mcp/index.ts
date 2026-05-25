@@ -30,6 +30,7 @@ export { renderSlides, type RenderResult, type RenderIssue, type SlideSpec } fro
 export {
   errorResult,
   formatZodIssue,
+  parseErrorPayload,
   zodErrorResult,
   type ToolErrorPayload,
   type ToolErrorResult,

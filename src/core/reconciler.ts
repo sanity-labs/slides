@@ -63,6 +63,7 @@ import {
   Image,
   Slide,
   isPrimitive,
+  markerKind,
   type BoxFill,
   type BoxProps,
   type ColorProps,
@@ -123,6 +124,14 @@ interface WalkContext {
   currentSlideIndex: number;
   /** The box being walked (if any), for error context. */
   currentBoxIndex: number;
+  /**
+   * The rect of the box being walked, for error context. Including the
+   * rect in error paths ("Box[3] @ (64,80,56,6)") gives agents enough
+   * disambiguating signal to find the offending element on the first try
+   * — just the index alone forces them to count siblings in the source,
+   * which they often miscount.
+   */
+  currentBoxRect: Rect | undefined;
 }
 
 /**
@@ -140,6 +149,7 @@ export const renderToOps = (input: RenderToOpsInput): ReconcileResult => {
     idCounter: 0,
     currentSlideIndex: -1,
     currentBoxIndex: -1,
+    currentBoxRect: undefined,
   };
 
   // Seed with caller-supplied artifacts first so reconciler-discovered
@@ -155,6 +165,7 @@ export const renderToOps = (input: RenderToOpsInput): ReconcileResult => {
   slides.forEach((slide, index) => {
     ctx.currentSlideIndex = index;
     ctx.currentBoxIndex = -1;
+    ctx.currentBoxRect = undefined;
     walkSlide(slide, index, ctx);
   });
 
@@ -232,7 +243,7 @@ const resolveNode = (node: ReactNode, ctx: WalkContext): ReactElement[] => {
 const collectSlides = (tree: ReactNode, ctx: WalkContext): ReactElement[] => {
   const resolved = resolveNode(tree, ctx);
   for (const el of resolved) {
-    if (el.type !== Slide) {
+    if (markerKind(el.type) !== 'Slide') {
       throw new ReconcilerError(
         `Top-level children must be <Slide> elements; got <${describeType(el.type)}>.`,
         ctx,
@@ -254,11 +265,15 @@ const walkSlide = (slide: ReactElement, index: number, ctx: WalkContext): void =
   const children = resolveNode(props.children, ctx);
   children.forEach((child, childIndex) => {
     ctx.currentBoxIndex = childIndex;
-    if (child.type === Box) {
+    const kind = markerKind(child.type);
+    if (kind === 'Box') {
+      const childProps = child.props as { rect?: Rect };
+      ctx.currentBoxRect = childProps.rect;
       walkBox(child, slideId, ctx);
+      ctx.currentBoxRect = undefined;
       return;
     }
-    if (child.type === Image) {
+    if (kind === 'Image') {
       walkImage(child, slideId, ctx);
       return;
     }
@@ -477,22 +492,32 @@ const walkText = (
     return;
   }
 
-  if (node.type === Text) {
+  const kind = markerKind(node.type);
+  if (kind === 'Text') {
     const props = node.props as TextProps;
     const merged: TextStyle = { ...inheritedStyle, ...(props.textStyle ?? {}) };
     walkText(props.children, merged, append, ctx);
     return;
   }
 
-  if (node.type === Color) {
+  if (kind === 'Color') {
     const props = node.props as ColorProps;
     const merged: TextStyle = { ...inheritedStyle, foregroundColor: props.color };
     walkText(props.children, merged, append, ctx);
     return;
   }
 
-  if (node.type === Slide || node.type === Box || node.type === Image) {
-    throw new ReconcilerError(`<${describeType(node.type)}> cannot appear inside a <Box>.`, ctx);
+  if (kind === 'Slide' || kind === 'Box' || kind === 'Image') {
+    const offending = describeType(node.type);
+    const offendingRect =
+      kind === 'Box' || kind === 'Image' ? describeRect((node.props as { rect?: Rect }).rect) : '';
+    throw new ReconcilerError(
+      `<${offending}${offendingRect}> cannot appear inside a <Box>. ` +
+        `<Box> can only contain <Text> / <Color> (for typography) and string literals. ` +
+        `If you want to draw two separate rectangles, make them sibling <Box>es directly under <Slide>, ` +
+        `not nested. The canvas is 960pt × 540pt — use absolute positioning via the rect prop, not nesting.`,
+      ctx,
+    );
   }
 
   if (typeof node.type === 'function') {
@@ -590,12 +615,27 @@ const describeType = (type: unknown): string => {
   return String(type);
 };
 
+/**
+ * Format a Rect for inclusion in an error message. The agent uses these to
+ * locate the offending element in the source without counting siblings.
+ */
+const describeRect = (rect: Rect | undefined): string =>
+  rect ? ` rect={{ x: ${rect.x}, y: ${rect.y}, w: ${rect.w}, h: ${rect.h} }}` : '';
+
 /** Error thrown by the reconciler with location info pre-formatted. */
 export class ReconcilerError extends Error {
-  constructor(message: string, ctx: Pick<WalkContext, 'currentSlideIndex' | 'currentBoxIndex'>) {
+  constructor(
+    message: string,
+    ctx: Pick<WalkContext, 'currentSlideIndex' | 'currentBoxIndex' | 'currentBoxRect'>,
+  ) {
     const path: string[] = [];
     if (ctx.currentSlideIndex >= 0) path.push(`Slide[${ctx.currentSlideIndex}]`);
-    if (ctx.currentBoxIndex >= 0) path.push(`Box[${ctx.currentBoxIndex}]`);
+    if (ctx.currentBoxIndex >= 0) {
+      const rectHint = ctx.currentBoxRect
+        ? ` @ (x:${ctx.currentBoxRect.x}, y:${ctx.currentBoxRect.y}, w:${ctx.currentBoxRect.w}, h:${ctx.currentBoxRect.h})`
+        : '';
+      path.push(`Box[${ctx.currentBoxIndex}]${rectHint}`);
+    }
     const prefix = path.length > 0 ? `${path.join(' > ')}: ` : '';
     super(`${prefix}${message}`);
     this.name = 'ReconcilerError';

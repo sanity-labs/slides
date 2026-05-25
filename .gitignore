@@ -45,3 +45,6 @@ Thumbs.db
 *-smoke.mjs
 **/smoke.mjs
 **/smoke.ts
+
+# Scratch PR-body drafts handed to `gh pr create --body-file`
+.pr-body.md

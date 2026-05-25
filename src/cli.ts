@@ -195,10 +195,22 @@ const loadTemplate = async (spec: string): Promise<Template> => {
 
 let tsxRegistered = false;
 
+/**
+ * Register tsx's ESM loader pointed at the bundled `runtime-tsconfig.json`,
+ * so any .ts/.tsx template transpiles with the automatic JSX runtime
+ * (jsx=react-jsx, jsxImportSource=react) regardless of where slidesctl was
+ * spawned from. Without an explicit tsconfig, tsx walks up from cwd and
+ * may find nothing — then esbuild falls back to classic JSX and any
+ * brand template using JSX crashes at render time with "React is not defined".
+ */
 const ensureTsxLoader = async (): Promise<void> => {
   if (tsxRegistered) return;
+  const here = dirname(fileURLToPath(import.meta.url));
+  // From either src/cli.ts (dev) or dist/cli.js (published), one level up
+  // is the package root.
+  const tsconfig = resolvePath(here, '..', 'runtime-tsconfig.json');
   const { register } = await import('tsx/esm/api');
-  register();
+  register({ tsconfig });
   tsxRegistered = true;
 };
 

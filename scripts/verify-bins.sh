@@ -17,6 +17,8 @@ test -f dist/dev/bin/slides-dev.mjs || { echo "FAIL: dist/dev/bin/slides-dev.mjs
 test -f SKILL.md                    || { echo "FAIL: SKILL.md missing" >&2; exit 1; }
 test -d dist/scaffold/template-base || { echo "FAIL: scaffold template-base not copied to dist/" >&2; exit 1; }
 test -d dist/scaffold/deck-base     || { echo "FAIL: scaffold deck-base not copied to dist/" >&2; exit 1; }
+test -f runtime-tsconfig.json       || { echo "FAIL: runtime-tsconfig.json missing at package root" >&2; exit 1; }
+node -e "const p=require('./package.json'); if (!(p.files||[]).includes('runtime-tsconfig.json')) { console.error('FAIL: runtime-tsconfig.json not in package.json files[]'); process.exit(1); }"
 
 shebang="$(head -n 1 dist/cli.js)"
 [[ "$shebang" == "#!/usr/bin/env node" ]] || { echo "FAIL: dist/cli.js missing node shebang (got: $shebang)" >&2; exit 1; }
@@ -44,6 +46,7 @@ cat > "$TMPDIR/package.json" <<EOF
   "private": true,
   "dependencies": {
     "@sanity-labs/slides": "file:./$tgz_basename",
+    "react": "^19.0.0",
     "zod": "^3.23.0"
   }
 }
@@ -69,6 +72,7 @@ echo "  ok: skill prints the bundled SKILL.md"
 # template's dist/index.js would look like.
 mkdir -p "$TMPDIR/test-template"
 cat > "$TMPDIR/test-template/index.mjs" <<'JS'
+import { createElement } from 'react';
 import { Box, CANVAS_16_9, Slide, Text, defineTemplate, defineTemplateComponent } from '@sanity-labs/slides';
 import { z } from 'zod';
 
@@ -79,31 +83,39 @@ const CoverSchema = z
   })
   .strict();
 
+// Slide / Box / Text are marker components — calling them as functions returns
+// null. They must be passed as React-element types via createElement so the
+// reconciler sees them in the resulting tree.
+const h = createElement;
 const Cover = ({ title, subtitle }) =>
-  Slide({
-    children: [
-      Box({
-        rect: { x: 0, y: 0, w: 960, h: 540 },
-        fill: { kind: 'solid', color: '#0b0b0b' },
-      }),
-      Box({
-        rect: { x: 40, y: 60, w: 880, h: 100 },
-        children: Text({
-          textStyle: { fontFamily: 'display', fontSize: 48, foregroundColor: '#ffffff' },
-          children: title,
-        }),
-      }),
-      subtitle
-        ? Box({
-            rect: { x: 40, y: 180, w: 880, h: 40 },
-            children: Text({
-              textStyle: { fontFamily: 'body', fontSize: 20, foregroundColor: '#cccccc' },
-              children: subtitle,
-            }),
-          })
-        : null,
-    ],
-  });
+  h(
+    Slide,
+    null,
+    h(Box, {
+      rect: { x: 0, y: 0, w: 960, h: 540 },
+      fill: { kind: 'solid', color: '#0b0b0b' },
+    }),
+    h(
+      Box,
+      { rect: { x: 40, y: 60, w: 880, h: 100 } },
+      h(
+        Text,
+        { textStyle: { fontFamily: 'display', fontSize: 48, foregroundColor: '#ffffff' } },
+        title,
+      ),
+    ),
+    subtitle
+      ? h(
+          Box,
+          { rect: { x: 40, y: 180, w: 880, h: 40 } },
+          h(
+            Text,
+            { textStyle: { fontFamily: 'body', fontSize: 20, foregroundColor: '#cccccc' } },
+            subtitle,
+          ),
+        )
+      : null,
+  );
 
 export const template = defineTemplate({
   name: 'verify-template',
@@ -132,6 +144,9 @@ pptx_path="$gen_out"
 test -f "$pptx_path" || { echo "FAIL: generate did not write a .pptx (got: $pptx_path)" >&2; exit 1; }
 magic="$(head -c 2 "$pptx_path" | xxd -p)"
 [[ "$magic" == "504b" ]] || { echo "FAIL: generate output is not a ZIP/.pptx (magic: $magic)" >&2; exit 1; }
+# Empty-deck-shell guard: confirm the .pptx contains at least one actual slide.
+# Local file headers in a ZIP carry the filename inline so a raw grep works.
+LC_ALL=C grep -q 'ppt/slides/slide1.xml' "$pptx_path" || { echo "FAIL: generate output has no ppt/slides/slide1.xml — the deck is just a shell" >&2; exit 1; }
 echo "  ok: generate wrote a real .pptx at $pptx_path"
 
 # Sanity-check scaffold separately (just confirms it stamps the template-base
@@ -194,6 +209,7 @@ deck_pptx="$(cd "$TMPDIR" && echo "$deck_payload" | timeout 30 "$bin_path" gener
 test -f "$deck_pptx" || { echo "FAIL: deck generate didn't write a .pptx (got: $deck_pptx)" >&2; exit 1; }
 magic="$(head -c 2 "$deck_pptx" | xxd -p)"
 [[ "$magic" == "504b" ]] || { echo "FAIL: deck output is not a ZIP/.pptx (magic: $magic)" >&2; exit 1; }
+LC_ALL=C grep -q 'ppt/slides/slide1.xml' "$deck_pptx" || { echo "FAIL: deck output has no ppt/slides/slide1.xml — the deck is just a shell" >&2; exit 1; }
 echo "  ok: deck + agent-authored Hero rendered to $deck_pptx"
 
 echo "✓ @sanity-labs/slides bin runnable end-to-end"
