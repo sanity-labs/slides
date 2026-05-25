@@ -24,7 +24,33 @@
  *   broken.
  */
 
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import type { RunOutcome, Scenario, Verdict } from './runner.js';
+
+/**
+ * Sibling-checkout path for the Sanity brand template's BUILT entrypoint.
+ *
+ * We point at `dist/index.js` (built) rather than `src/index.ts` (source)
+ * because loading a separate template repo through tsx causes a dual-
+ * instance issue: the harness subprocess loads its own @sanity-labs/slides
+ * (from react-gslides), and the tsx-loaded template tries to load ITS own
+ * @sanity-labs/slides + pptxgenjs from slides-template/node_modules. Two
+ * pptxgenjs instances + ESM cycles in pptxgenjs's internals = Node 22
+ * throws `ERR_REQUIRE_CYCLE_MODULE`. Loading the built JS sidesteps tsx
+ * entirely and lets the regular ESM resolver find a single shared install.
+ *
+ * The `sanity-investor-deck` scenario below is filtered out automatically
+ * if the build hasn't been produced — contributors who only care about the
+ * framework's own scenarios get a clean run.
+ */
+const SANITY_TEMPLATE_PATH = path.resolve(
+  process.cwd(),
+  '..',
+  'slides-template',
+  'dist',
+  'index.js',
+);
 
 // ---------------------------------------------------------------------------
 // Tier 1 — does Claude understand the prebuilt slide types?
@@ -267,6 +293,82 @@ const brandLockRespect: Scenario = {
 };
 
 // ---------------------------------------------------------------------------
+// Sanity-template scenario — drives the agent against the real Sanity
+// brand template at sibling repo `sanity-labs/slides-template`.
+//
+// Skipped automatically when the template repo isn't checked out next to
+// this one. To run: clone `sanity-labs/slides-template` to a sibling
+// directory and ensure its `@sanity-labs/slides` dep points at this
+// framework (file:../../path/to/react-gslides while iterating, or `*` for
+// the published version).
+// ---------------------------------------------------------------------------
+
+const sanityInvestorDeck: Scenario = {
+  name: 'sanity-investor-deck',
+  description:
+    "Drive the agent against the real Sanity brand template. Mixes tier-1 (use the template's curated `Cover`, `OneColumn`, `TitleAndGrid`, `Closing` slides) with tier-2 (write a custom `Metric` slide using Sanity brand tokens via className). Verifies the brand-token aliases (fg-base, bg-base, accent) resolve cleanly.",
+  templatePath: SANITY_TEMPLATE_PATH,
+  userPrompt: [
+    'Create a 4-slide investor update for a B2B SaaS company called "Lumen Analytics".',
+    '',
+    "Use the Sanity brand template's slide types where they fit:",
+    '1. **Cover** — title "Lumen Analytics", subtitle "Q4 investor update", eyebrow "INVESTOR UPDATE".',
+    '2. **OneColumn** or **TitleAndBody** — a short paragraph framing the quarter (a couple of sentences about how the quarter went).',
+    '3. **A custom Metric slide** — the template doesn\'t ship one, so write a custom slide called `MetricRow` that displays three side-by-side metrics with a big number, a label, and an optional delta. Use Sanity brand tokens via className (bg-base for the slide background, fg-base for primary text, accent for emphasis, fg-dim for the labels). The three metrics: "$5M ARR (+240% YoY)", "120 paying customers (mid-market US + EU)", "142% net revenue retention".',
+    '4. **Closing** — use the template\'s Closing slide, title "Thanks", eyebrow "QnA".',
+    '',
+    'When you write the custom MetricRow component, reach for the brand\'s short-form tokens (fg-base, bg-base, fg-dim, accent) via className like `bg-bg-base`, `text-fg-base`, etc. Read `slides_list({ detail: "detailed" })` to confirm the actual token names before composing classes.',
+  ].join('\n'),
+  maxTurns: 30,
+  expect: (outcome) => {
+    const verdicts: Verdict[] = [];
+    must(verdicts, outcome.calledTool('slides_list'), 'agent did not discover the template');
+    must(verdicts, outcome.calledTool('slides_create_deck'), 'agent did not scaffold a deck');
+    must(
+      verdicts,
+      outcome.calledTool('slides_add_component'),
+      'agent did not write the custom MetricRow component',
+    );
+    must(
+      verdicts,
+      outcome.producedPptx.length === 1,
+      `expected exactly 1 .pptx, got ${outcome.producedPptx.length}`,
+    );
+    const createCall = outcome.toolCalls.find((c) => c.name === 'slides_create' && !c.isError);
+    if (createCall) {
+      const slides = (createCall.input.slides ?? []) as Array<{ component?: string }>;
+      must(verdicts, slides.length === 4, `expected exactly 4 slides, got ${slides.length}`);
+      mustWarn(
+        verdicts,
+        slides[0]?.component === 'Cover',
+        "slide 1 should be the template's Cover",
+      );
+      mustWarn(
+        verdicts,
+        slides[slides.length - 1]?.component === 'Closing',
+        "last slide should be the template's Closing",
+      );
+    }
+    // Brand lock: no raw hex literals in the agent's component source.
+    const sources = outcome.toolCalls
+      .filter((c) => c.name === 'slides_add_component' && !c.isError)
+      .map((c) => String(c.input.source ?? ''));
+    must(
+      verdicts,
+      !sources.some((s) => /['"]#[0-9a-fA-F]{3,8}['"]/.test(s)),
+      'custom component contains a raw hex color literal — should use Sanity brand tokens via className',
+    );
+    // Did the agent use the short-form aliases the template now exposes?
+    mustWarn(
+      verdicts,
+      sources.some((s) => /bg-fg-base|bg-bg-base|text-fg-base|bg-accent|text-fg-dim/.test(s)),
+      'custom component did not reach for the short-form brand tokens (fg-base / bg-base / accent / fg-dim)',
+    );
+    return verdicts;
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -282,10 +384,14 @@ const mustWarn = (verdicts: Verdict[], condition: boolean, reason: string): void
 // Export
 // ---------------------------------------------------------------------------
 
-export const scenarios: ReadonlyArray<Scenario> = [
+const baseScenarios: ReadonlyArray<Scenario> = [
   tier1SingleSlide,
   tier1MultiSlide,
   tier2PitchDeck,
   tier2RecoversFromTypecheck,
   brandLockRespect,
 ];
+
+export const scenarios: ReadonlyArray<Scenario> = existsSync(SANITY_TEMPLATE_PATH)
+  ? [...baseScenarios, sanityInvestorDeck]
+  : baseScenarios;
