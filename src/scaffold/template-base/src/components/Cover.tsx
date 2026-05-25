@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { Slide, Box, Text } from '@sanity-labs/slides';
+import { Slide, Box } from '@sanity-labs/slides';
 import { z } from 'zod';
 
 export const CoverSchema = z
@@ -12,19 +12,10 @@ export const CoverSchema = z
 type CoverProps = z.infer<typeof CoverSchema>;
 
 export const Cover = ({ title, subtitle }: CoverProps): ReactElement => (
-  <Slide>
-    <Box rect={{ x: 0, y: 0, w: 960, h: 540 }} fill={{ kind: 'solid', color: '#0b0b0b' }} />
-    <Box rect={{ x: 60, y: 200, w: 800, h: 120 }}>
-      <Text textStyle={{ fontFamily: 'display', fontSize: 64, foregroundColor: '#ffffff' }}>
-        {title}
-      </Text>
-    </Box>
+  <Slide className="flex flex-col justify-center gap-4 p-md bg-fg-base">
+    <Box className="flex-none text-display text-6xl text-bg-surface">{title}</Box>
     {subtitle ? (
-      <Box rect={{ x: 60, y: 320, w: 800, h: 40 }}>
-        <Text textStyle={{ fontFamily: 'body', fontSize: 20, foregroundColor: '#cccccc' }}>
-          {subtitle}
-        </Text>
-      </Box>
+      <Box className="flex-none text-body text-2xl text-bg-surface">{subtitle}</Box>
     ) : null}
   </Slide>
 );

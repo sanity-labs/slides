@@ -10,12 +10,18 @@ export const __IDENT__ = defineTemplate({
     body: ['Inter', 'Arial'],
     mono: ['IBM Plex Mono', 'Courier New'],
   },
+  // Presentation-grade palette — every color stays legible on a projector
+  // at back-of-room distance. Avoid soft web-UI grays (#cccccc-ish) for body
+  // text — they vanish above ~6m viewing distance.
   colors: {
-    'fg.base': '#0b0b0b',
-    'bg.surface': '#ffffff',
+    'fg-base': '#0b0b0b',
+    'fg-muted': '#4a4a4a',
+    'bg-surface': '#ffffff',
+    'surface-elevated': '#1a1a1a',
+    accent: '#ff5500',
   },
   typography: {},
-  spacing: { md: 12, lg: 24 },
+  spacing: { sm: 8, md: 16, lg: 32 },
   components: {
     Cover: defineTemplateComponent({
       component: Cover,

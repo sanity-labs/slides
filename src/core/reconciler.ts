@@ -57,25 +57,28 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  Box,
-  Color,
-  Text,
-  Image,
-  Slide,
   isPrimitive,
   markerKind,
   type BoxFill,
   type BoxProps,
   type ColorProps,
-  type TextProps,
   type ImageProps,
-  type SlideProps,
+  type TextProps,
 } from './components.js';
 import { isFontRole, resolveFontRole } from './font-resolver.js';
 import { ptToEmu, type Rect } from './geometry.js';
+import { layoutSlide, LayoutError, type LayoutNode } from './layout.js';
+import { resolveClassName, UnknownClassError } from './tailwind-resolver.js';
 import type { ArtifactRef, GenerationManifest, ReconcileResult, SlotId } from './manifest.js';
 import type { Template } from './template.js';
-import type { EmuRect, ShapeProperties, SlideOp, TextRange, TextStyle } from './runtime.js';
+import type {
+  EmuRect,
+  ParagraphStyle,
+  ShapeProperties,
+  SlideOp,
+  TextRange,
+  TextStyle,
+} from './runtime.js';
 
 /** Inputs to a single render. */
 export interface RenderToOpsInput {
@@ -254,7 +257,6 @@ const collectSlides = (tree: ReactNode, ctx: WalkContext): ReactElement[] => {
 };
 
 const walkSlide = (slide: ReactElement, index: number, ctx: WalkContext): void => {
-  const props = slide.props as SlideProps;
   const slideId = makeId('slide', ctx);
   ctx.ops.push({
     type: 'createSlide',
@@ -262,29 +264,76 @@ const walkSlide = (slide: ReactElement, index: number, ctx: WalkContext): void =
     insertAt: index,
   });
 
-  const children = resolveNode(props.children, ctx);
-  children.forEach((child, childIndex) => {
-    ctx.currentBoxIndex = childIndex;
-    const kind = markerKind(child.type);
-    if (kind === 'Box') {
-      const childProps = child.props as { rect?: Rect };
-      ctx.currentBoxRect = childProps.rect;
-      walkBox(child, slideId, ctx);
-      ctx.currentBoxRect = undefined;
-      return;
-    }
-    if (kind === 'Image') {
-      walkImage(child, slideId, ctx);
-      return;
-    }
-    throw new ReconcilerError(
-      `<Slide> children must be <Box> or <Image> elements; got <${describeType(child.type)}>.`,
-      ctx,
+  // Run Yoga layout for this slide's tree. The returned LayoutNode tree
+  // mirrors the resolved JSX (with function components invoked) and carries
+  // computed rects + className-resolved fill/textStyle on every Box.
+  let layoutTree: LayoutNode;
+  try {
+    layoutTree = layoutSlide(slide, ctx.template, ctx.template.canvas, (node) =>
+      resolveNode(node, ctx),
     );
+  } catch (err) {
+    if (err instanceof LayoutError) {
+      throw new ReconcilerError(err.message, ctx);
+    }
+    if (err instanceof Error && err.name === 'UnknownClassError') {
+      throw new ReconcilerError(err.message, ctx);
+    }
+    throw err;
+  }
+
+  // Slide-level fill (from `<Slide className="bg-<token>">`) renders as a
+  // full-canvas backing shape before any child content, so it sits behind
+  // everything. Pre-Yoga, brand authors did this by hand with a first
+  // `<Box rect={{0,0,w,h}} fill={...}>` sibling; with className-driven layout,
+  // the framework owns it.
+  if (layoutTree.fill !== undefined) {
+    const bgId = makeId('shape', ctx);
+    ctx.ops.push({
+      type: 'createShape',
+      slideId,
+      shapeId: bgId,
+      shape: 'TEXT_BOX',
+      rect: rectToEmu(layoutTree.rect),
+    });
+    ctx.ops.push({
+      type: 'updateShapeProperties',
+      objectId: bgId,
+      properties: boxFillToShapeProperties(layoutTree.fill),
+    });
+  }
+
+  layoutTree.children.forEach((child, childIndex) => {
+    ctx.currentBoxIndex = childIndex;
+    ctx.currentBoxRect = child.rect;
+    if (child.kind === 'box') {
+      walkLayoutBox(child, slideId, ctx);
+    } else if (child.kind === 'image') {
+      walkLayoutImage(child, slideId, ctx);
+    }
+    ctx.currentBoxRect = undefined;
   });
 };
 
-const walkBox = (box: ReactElement, slideId: string, ctx: WalkContext): void => {
+/**
+ * Emit ops for one laid-out Box.
+ *
+ * Two shapes a Box can take after layout:
+ *
+ *   - **Flex container**: has child Boxes/Images. Emits a background-only
+ *     TEXT_BOX shape (still TEXT_BOX so consumers can re-fill text into it
+ *     post-render if they want) and recurses into children. Text descendants
+ *     under flex containers belong to their nearest leaf Box, not the
+ *     container itself.
+ *   - **Text-bearing leaf**: has Text / Color / string children only. Emits
+ *     the shape, applies className-resolved + prop textStyle, inserts text
+ *     with per-run style spans.
+ *
+ * The shape kind stays TEXT_BOX for both cases so the runtime translator
+ * doesn't have to branch.
+ */
+const walkLayoutBox = (node: LayoutNode, slideId: string, ctx: WalkContext): void => {
+  const box = node.element;
   const props = box.props as BoxProps;
   const shapeId = makeId('shape', ctx);
   ctx.ops.push({
@@ -292,20 +341,18 @@ const walkBox = (box: ReactElement, slideId: string, ctx: WalkContext): void => 
     slideId,
     shapeId,
     shape: 'TEXT_BOX',
-    rect: rectToEmu(props.rect),
+    rect: rectToEmu(node.rect),
   });
 
   // Fill applies to the shape itself, before any text. Order matters:
   //   createShape → updateShapeProperties → insertText → updateTextStyle
-  // This way an empty Box with a fill is a valid full-bleed colored
-  // background, and a Box with both fill and text gets the fill behind the
-  // text without any z-order ambiguity.
-  if (props.fill !== undefined) {
-    const properties = boxFillToShapeProperties(props.fill);
+  // The resolved fill is whichever wins of (explicit `fill` prop, className
+  // `bg-<token>`) — the layout pass already picked the right one.
+  if (node.fill !== undefined) {
     ctx.ops.push({
       type: 'updateShapeProperties',
       objectId: shapeId,
-      properties,
+      properties: boxFillToShapeProperties(node.fill),
     });
   }
 
@@ -317,45 +364,54 @@ const walkBox = (box: ReactElement, slideId: string, ctx: WalkContext): void => 
       );
     }
     ctx.slots.set(props.slotId, shapeId);
-    // Slot identity is encoded into shape alt-text per generation-model.md.
-    // We re-use `updateShapeProperties` semantics by piggybacking through a
-    // dedicated op-shape — here, alt-text is set via a property update at the
-    // runtime layer. The op carries no fillColor/outlineColor, signalling
-    // "alt text only." If alt-text ever deserves its own op type, this is the
-    // keeps the SlideOp union narrow.
-    //
-    // NOTE: `updateShapeProperties` doesn't currently carry alt-text; the
-    // runtime adapter resolves slot alt-text from the manifest's `slots` map,
-    // not from an op. The manifest is the source of truth for slot identity.
-    // This is intentional: ops express "what to do," manifest expresses "what
-    // is true after." Encoding alt-text into ops would duplicate the manifest
-    // entry.
   }
 
-  // Default styles to apply across the whole shape after text is inserted.
+  // Flex container: recurse into children, skip text emission. The container
+  // itself is just a background — its size is the sum of its flex children.
+  if (node.children.length > 0) {
+    const savedBoxIdx = ctx.currentBoxIndex;
+    const savedBoxRect = ctx.currentBoxRect;
+    node.children.forEach((child, idx) => {
+      ctx.currentBoxIndex = idx;
+      ctx.currentBoxRect = child.rect;
+      if (child.kind === 'box') walkLayoutBox(child, slideId, ctx);
+      else if (child.kind === 'image') walkLayoutImage(child, slideId, ctx);
+    });
+    ctx.currentBoxIndex = savedBoxIdx;
+    ctx.currentBoxRect = savedBoxRect;
+    return;
+  }
+
+  // Text-bearing leaf (or empty): collect Text/Color/string children into
+  // runs, emit insertText + style ops.
   const text = collectTextRuns(props.children, ctx);
   if (text.runs.length === 0) {
-    // Empty Box is permitted (colored rectangle, full-bleed background).
-    return;
+    return; // Empty Box: background fill only.
   }
 
   ctx.ops.push({ type: 'insertText', objectId: shapeId, text: text.full });
 
-  if (props.textStyle !== undefined && Object.keys(props.textStyle).length > 0) {
+  // Box-level textStyle = layout-resolved (className) merged with explicit
+  // prop. Explicit prop wins on collision so authors with both can pin one
+  // field per-call (e.g. `className="text-2xl" textStyle={{italic: true}}`).
+  const boxTextStyle = mergeTextStyle(node.textStyle, props.textStyle);
+  if (boxTextStyle && Object.keys(boxTextStyle).length > 0) {
     ctx.ops.push({
       type: 'updateTextStyle',
       objectId: shapeId,
       range: { start: 0, end: text.full.length },
-      style: resolveTextStyleFonts(props.textStyle, ctx.template, ctx),
+      style: resolveTextStyleFonts(boxTextStyle, ctx.template, ctx),
     });
   }
 
-  if (props.paragraphStyle !== undefined && Object.keys(props.paragraphStyle).length > 0) {
+  // Paragraph style from `text-{left,center,right}` className + explicit prop.
+  const boxParaStyle = mergeParagraphStyle(node.textAlign, props.paragraphStyle);
+  if (boxParaStyle && Object.keys(boxParaStyle).length > 0) {
     ctx.ops.push({
       type: 'updateParagraphStyle',
       objectId: shapeId,
       range: { start: 0, end: text.full.length },
-      style: props.paragraphStyle,
+      style: boxParaStyle,
     });
   }
 
@@ -383,15 +439,15 @@ const walkBox = (box: ReactElement, slideId: string, ctx: WalkContext): void => 
  * for re-fill and wins. The op stream still carries the user altText, so the
  * substrate doesn't lose it.
  */
-const walkImage = (image: ReactElement, slideId: string, ctx: WalkContext): void => {
-  const props = image.props as ImageProps;
+const walkLayoutImage = (node: LayoutNode, slideId: string, ctx: WalkContext): void => {
+  const props = node.element.props as ImageProps;
   const imageId = makeId('image', ctx);
   ctx.ops.push({
     type: 'createImage',
     slideId,
     imageId,
     url: props.image.url,
-    rect: rectToEmu(props.rect),
+    rect: rectToEmu(node.rect),
     ...(props.altText !== undefined ? { altText: props.altText } : {}),
   });
 
@@ -495,7 +551,9 @@ const walkText = (
   const kind = markerKind(node.type);
   if (kind === 'Text') {
     const props = node.props as TextProps;
-    const merged: TextStyle = { ...inheritedStyle, ...(props.textStyle ?? {}) };
+    const classStyle = resolveTextClassName(props.className, ctx);
+    // Per-field precedence: inherited ← className ← explicit prop (last wins).
+    const merged: TextStyle = { ...inheritedStyle, ...classStyle, ...(props.textStyle ?? {}) };
     walkText(props.children, merged, append, ctx);
     return;
   }
@@ -507,15 +565,22 @@ const walkText = (
     return;
   }
 
-  if (kind === 'Slide' || kind === 'Box' || kind === 'Image') {
-    const offending = describeType(node.type);
-    const offendingRect =
-      kind === 'Box' || kind === 'Image' ? describeRect((node.props as { rect?: Rect }).rect) : '';
+  if (kind === 'Slide') {
     throw new ReconcilerError(
-      `<${offending}${offendingRect}> cannot appear inside a <Box>. ` +
-        `<Box> can only contain <Text> / <Color> (for typography) and string literals. ` +
-        `If you want to draw two separate rectangles, make them sibling <Box>es directly under <Slide>, ` +
-        `not nested. The canvas is 960pt × 540pt — use absolute positioning via the rect prop, not nesting.`,
+      `<Slide> cannot appear inside a <Box>. <Slide> is a top-level element only.`,
+      ctx,
+    );
+  }
+  // <Box> and <Image> inside a text-emitting Box are not text content — they
+  // would have been picked up as flex children by the layout pass. Reaching
+  // this branch means a Box that *we* classified as a text-bearing leaf
+  // (no flex children) somehow holds a Box/Image. That can happen if the
+  // layout pass and the text pass disagree on "flex child" — a code bug, not
+  // user input. Surface it explicitly.
+  if (kind === 'Box' || kind === 'Image') {
+    throw new ReconcilerError(
+      `Internal: <${describeType(node.type)}> reached the text walk for a leaf <Box>. ` +
+        `This is a bug; please report it.`,
       ctx,
     );
   }
@@ -578,6 +643,62 @@ const rectToEmu = (rect: Rect): EmuRect => ({
   h: ptToEmu(rect.h),
 });
 
+/**
+ * Resolve a `<Text className="...">` into a plain `TextStyle`.
+ *
+ * Strips out the `textAlign` side-channel (Text doesn't carry paragraph
+ * alignment — the parent Box does) so it doesn't leak into a textStyle op.
+ * Wraps `UnknownClassError` so the error path matches the rest of the
+ * reconciler.
+ */
+const resolveTextClassName = (className: string | undefined, ctx: WalkContext): TextStyle => {
+  if (!className) return {};
+  try {
+    const resolved = resolveClassName(className, ctx.template);
+    const text: TextStyle = { ...resolved.text };
+    delete (text as { textAlign?: string }).textAlign;
+    return text;
+  } catch (err) {
+    if (err instanceof UnknownClassError) throw new ReconcilerError(err.message, ctx);
+    throw err;
+  }
+};
+
+/**
+ * Merge className-resolved + prop-supplied text styles.
+ *
+ * The prop wins per-field on collision — explicit always trumps utility class.
+ * Returns `undefined` if both inputs are absent / empty so the caller can
+ * short-circuit the updateTextStyle op.
+ */
+const mergeTextStyle = (
+  fromClass: TextStyle | undefined,
+  fromProp: TextStyle | undefined,
+): TextStyle | undefined => {
+  if (!fromClass && !fromProp) return undefined;
+  const merged: TextStyle = { ...(fromClass ?? {}), ...(fromProp ?? {}) };
+  // textAlign is stored on TextStyle as a class-resolution side channel;
+  // strip before emitting so it doesn't leak into the runtime op.
+  delete (merged as { textAlign?: string }).textAlign;
+  return merged;
+};
+
+/**
+ * Resolve paragraph style by merging the className-derived `textAlign` with
+ * any explicit `paragraphStyle` prop. Explicit prop wins per-field.
+ */
+const mergeParagraphStyle = (
+  textAlign: 'left' | 'center' | 'right' | undefined,
+  fromProp: ParagraphStyle | undefined,
+): ParagraphStyle | undefined => {
+  if (!textAlign && !fromProp) return undefined;
+  const base: ParagraphStyle = {};
+  if (textAlign === 'left') base.alignment = 'START';
+  else if (textAlign === 'center') base.alignment = 'CENTER';
+  else if (textAlign === 'right') base.alignment = 'END';
+  return { ...base, ...(fromProp ?? {}) };
+};
+
 const makeId = (prefix: string, ctx: WalkContext): string => {
   ctx.idCounter += 1;
   return `${prefix}_${ctx.idCounter}`;
@@ -614,13 +735,6 @@ const describeType = (type: unknown): string => {
   if (type === Fragment) return 'Fragment';
   return String(type);
 };
-
-/**
- * Format a Rect for inclusion in an error message. The agent uses these to
- * locate the offending element in the source without counting siblings.
- */
-const describeRect = (rect: Rect | undefined): string =>
-  rect ? ` rect={{ x: ${rect.x}, y: ${rect.y}, w: ${rect.w}, h: ${rect.h} }}` : '';
 
 /** Error thrown by the reconciler with location info pre-formatted. */
 export class ReconcilerError extends Error {

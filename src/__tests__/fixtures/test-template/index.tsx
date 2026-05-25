@@ -17,7 +17,6 @@ import {
   defineTemplate,
   defineTemplateComponent,
   Slide,
-  Text,
   type Template,
 } from '../../../index.js';
 
@@ -31,19 +30,10 @@ export const CoverSchema = z
 type CoverProps = z.infer<typeof CoverSchema>;
 
 export const Cover = ({ title, subtitle }: CoverProps): ReactElement => (
-  <Slide>
-    <Box rect={{ x: 0, y: 0, w: 960, h: 540 }} fill={{ kind: 'solid', color: '#0b0b0b' }} />
-    <Box rect={{ x: 40, y: 60, w: 880, h: 100 }}>
-      <Text textStyle={{ fontFamily: 'display', fontSize: 48, foregroundColor: '#ffffff' }}>
-        {title}
-      </Text>
-    </Box>
+  <Slide className="flex flex-col justify-center gap-4 p-12 bg-fg-base">
+    <Box className="flex-none text-display text-6xl text-bg-surface">{title}</Box>
     {subtitle ? (
-      <Box rect={{ x: 40, y: 180, w: 880, h: 40 }}>
-        <Text textStyle={{ fontFamily: 'body', fontSize: 20, foregroundColor: '#cccccc' }}>
-          {subtitle}
-        </Text>
-      </Box>
+      <Box className="flex-none text-body text-2xl text-bg-surface">{subtitle}</Box>
     ) : null}
   </Slide>
 );
@@ -63,7 +53,17 @@ export const testTemplate: Template = defineTemplate({
     body: ['Arial', 'Helvetica'],
     mono: ['Courier New'],
   },
-  colors: {},
+  // Presentation-grade palette — every color readable from the back of a
+  // room on a projector. Token names match `scaffold/template-base` so the
+  // canonical SKILL example uses the same vocabulary an agent will see when
+  // a real user scaffolds their own template.
+  colors: {
+    'fg-base': '#0b0b0b',
+    'fg-muted': '#4a4a4a',
+    'bg-surface': '#ffffff',
+    'surface-elevated': '#1a1a1a',
+    accent: '#ff5500',
+  },
   typography: {},
   spacing: {},
   components: {

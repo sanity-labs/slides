@@ -6,6 +6,7 @@
   },
   "entry": [
     "src/cli.ts",
+    "src/commands/*.ts",
     "src/dev/bin/slides-dev.mjs",
     "src/dev/bin/slides-dev.ts",
     "src/dev/dev-server/client/entry.tsx",

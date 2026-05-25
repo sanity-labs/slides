@@ -95,19 +95,10 @@ export const QuoteSchema = z
   .strict();
 
 export const Quote = ({ quote, attribution }: z.infer<typeof QuoteSchema>) => (
-  <Slide>
-    <Box rect={{ x: 0, y: 0, w: 960, h: 540 }} fill={{ kind: 'solid', color: '#ff5500' }} />
-    <Box rect={{ x: 60, y: 200, w: 840, h: 160 }}>
-      <Text textStyle={{ fontFamily: 'display', fontSize: 48, foregroundColor: '#0b0b0b' }}>
-        “{quote}”
-      </Text>
-    </Box>
+  <Slide className="flex flex-col justify-center gap-4 p-12 bg-accent">
+    <Box className="flex-none text-display text-5xl text-fg-base">“{quote}”</Box>
     {attribution ? (
-      <Box rect={{ x: 60, y: 380, w: 840, h: 32 }}>
-        <Text textStyle={{ fontFamily: 'mono', fontSize: 14, foregroundColor: '#0b0b0b' }}>
-          — {attribution}
-        </Text>
-      </Box>
+      <Box className="flex-none text-mono text-sm text-fg-base">— {attribution}</Box>
     ) : null}
   </Slide>
 );

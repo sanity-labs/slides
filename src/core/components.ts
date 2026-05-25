@@ -20,16 +20,33 @@ import type { ReactNode } from 'react';
 import type { Rect } from './geometry.js';
 import type { ArtifactRef, SlotId } from './manifest.js';
 import type { HexColor, ParagraphStyle, TextStyle } from './runtime.js';
+import type { YogaStyle } from './tailwind-resolver.js';
 
 /**
  * A single slide in the deck.
  *
  * Every `<Slide>` becomes a `createSlide` op. Children are rendered into the
  * slide's coordinate space.
+ *
+ * Layout defaults to `flex flex-col` when neither `className` nor `style` is
+ * set — children stack vertically across the canvas. Override with
+ * `className="flex flex-row"` etc., or escape to absolute positioning by
+ * giving every child a `rect` prop.
  */
 export interface SlideProps {
   /** Children: `<Box>` and `<Image>` shapes laid out inside the slide. */
   children?: ReactNode;
+  /**
+   * Brand-locked Tailwind classes, resolved against the active template.
+   * See `src/core/tailwind-resolver.ts` for the allowlist.
+   */
+  className?: string;
+  /**
+   * Inline layout style. Lower-level escape hatch for cases where the
+   * Tailwind allowlist doesn't express what you need (custom flex basis,
+   * direct width in pt). Inline `style` wins over `className` on collision.
+   */
+  style?: YogaStyle;
 }
 
 /**
@@ -53,10 +70,42 @@ export type BoxFill = { kind: 'solid'; color: HexColor };
  * Becomes a `createShape` op with shape `TEXT_BOX` (the only shape this
  * primitive set produces; other shape kinds are reserved for the future).
  * Children are concatenated into a single text run with style spans.
+ *
+ * **Position is resolved one of three ways**, in priority order:
+ *
+ *   1. `rect={{x,y,w,h}}` — absolute coords, the original (pre-Yoga) API.
+ *      Still supported as an escape hatch for hand-tuned layouts.
+ *   2. `className="flex … p-… gap-… bg-…"` — brand-locked Tailwind classes
+ *      resolved against the active template. The reconciler runs Yoga to
+ *      compute the rect from the resulting flex layout.
+ *   3. `style={{ flexDirection: …, gap: … }}` — raw Yoga style; same layout
+ *      pipeline as className, lower-level. Overlay-able with className.
+ *
+ * Boxes nest freely under Yoga — a flex container Box can hold child Boxes,
+ * Images, and/or text. The reconciler decides per-Box whether to emit text
+ * ops based on the children present.
  */
 export interface BoxProps {
-  /** The shape's rect in *points*. The reconciler converts to EMU at the boundary. */
-  rect: Rect;
+  /**
+   * Absolute coords in *points*. When set, the Box is pinned at this
+   * location and skips flex contribution (siblings lay out around it).
+   * Mutually informative with `className` / `style`: if `rect` is set, the
+   * flex props are ignored for this Box's own positioning, though its
+   * children still flex inside the rect.
+   */
+  rect?: Rect;
+  /**
+   * Brand-locked Tailwind classes. See `src/core/tailwind-resolver.ts` for
+   * the allowlist (layout, typography, brand-token colors, brand-token
+   * spacing). Resolved at render time; unknown classes throw with a
+   * suggestion-aware error.
+   */
+  className?: string;
+  /**
+   * Inline Yoga-shaped style. Same layout pipeline as `className`, lower-
+   * level escape hatch. Inline style wins over className on collision.
+   */
+  style?: YogaStyle;
 
   /**
    * Optional slot ID, encoded into the shape's alt-text. Required for any text
@@ -94,10 +143,20 @@ export interface BoxProps {
  * The intent of carrying `textStyle` here (rather than mandating a typography
  * token) is: high-level brand components compose this primitive *and* enforce
  * brand-token discipline at *their* layer. The substrate stays brand-agnostic.
+ *
+ * `<Text>` accepts `className` for typography classes (`text-xl`, `font-bold`,
+ * `text-display`, `text-<brand-color-token>`). Layout classes on `<Text>` are
+ * a no-op — Text doesn't participate in flex layout; its parent Box does.
  */
 export interface TextProps {
   /** Style applied to this run only. Merges over `<Box>`'s `textStyle`. */
   textStyle?: TextStyle;
+  /**
+   * Brand-locked Tailwind classes — only the typography subset is meaningful
+   * here (`text-{size}`, `font-bold`, `italic`, `text-{role}`, `text-{token}`).
+   * Layout classes are silently ignored.
+   */
+  className?: string;
   /** Children: text content. Nested elements are flattened to their text. */
   children?: ReactNode;
 }
@@ -141,8 +200,23 @@ export interface ImageRef {
  * `<Box>` and the (future) shape-kind extension to its fill prop.
  */
 export interface ImageProps {
-  /** The image's rect in *points*. The reconciler converts to EMU at the boundary. */
-  rect: Rect;
+  /**
+   * Absolute coords in *points*. When set, pins the image at this location
+   * and skips flex contribution — same escape-hatch semantics as `<Box>`.
+   * Mutually informative with `className`/`style`: if `rect` is set,
+   * positioning comes from rect; everything else from className/style.
+   */
+  rect?: Rect;
+
+  /**
+   * Brand-locked Tailwind classes for sizing the image inside a flex layout
+   * (e.g. `aspect-square`, `w-1/3`, `flex-1`). Color/text classes are
+   * ignored — Image has no foreground/background of its own.
+   */
+  className?: string;
+
+  /** Inline Yoga-shaped style. Same precedence as Box's `style`. */
+  style?: YogaStyle;
 
   /**
    * The image to render, including its brand-artifact provenance. Required —
