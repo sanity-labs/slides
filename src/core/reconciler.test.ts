@@ -184,7 +184,7 @@ describe('renderToOps — error paths', () => {
   test('rejects a non-Box child of a Slide', () => {
     const tree = createElement(Slide, null, createElement(Text, null, 'orphan text'));
     expect(() => renderToOps({ tree, template: TestBrand, deckId: null, now: FIXED_NOW })).toThrow(
-      /<Slide> children must be <Box>/,
+      /Expected <Box> or <Image> as a child of <Slide>/,
     );
   });
 
@@ -487,22 +487,28 @@ describe('renderToOps — Image primitive', () => {
     );
   });
 
-  test('<Image> nested inside a <Box> is rejected with a path-prefixed error', () => {
+  test('<Image> nested inside a <Box> is now a valid flex child (Yoga era)', () => {
+    // Pre-Yoga the reconciler rejected this with "Image cannot appear inside
+    // a Box" — every layout had to be flat under <Slide>. Now Boxes nest
+    // freely; the inner Image becomes a flex child of the parent Box.
     const tree = createElement(
       Slide,
       null,
       createElement(
         Box,
-        { rect: { x: 0, y: 0, w: 10, h: 10 } },
+        { rect: { x: 0, y: 0, w: 100, h: 100 } },
         createElement(Image, {
-          rect: { x: 0, y: 0, w: 10, h: 10 },
+          rect: { x: 0, y: 0, w: 50, h: 50 },
           image: { url: HERO_ARTIFACT.resolvedUrl, artifact: HERO_ARTIFACT },
         }),
       ),
     );
-    expect(() => renderToOps({ tree, template: TestBrand, deckId: null, now: FIXED_NOW })).toThrow(
-      /<Image(?:\s|>) ?.*cannot appear inside a <Box>/,
-    );
+    const result = renderToOps({ tree, template: TestBrand, deckId: null, now: FIXED_NOW });
+    // Outer Box → createShape; inner Image → createImage. The Box itself
+    // emits a shape, then recurses into the Image child.
+    const ops = result.ops.map((o) => o.type);
+    expect(ops).toContain('createShape');
+    expect(ops).toContain('createImage');
   });
 });
 

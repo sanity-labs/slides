@@ -116,9 +116,8 @@ const tier2PitchDeck: Scenario = {
     '',
     'The template ships only a single Cover slide type. You will need to write custom slide components for the rest. Keep these constraints in mind:',
     '',
-    '- The canvas is 960pt × 540pt. Every Box rect must fit inside that.',
-    '- Background fills are fine, but make sure every Text block uses a foregroundColor that contrasts with whatever Box sits behind it. A black Text on a black Box renders an invisible slide.',
-    '- Use a deliberate visual hierarchy: titles around 36-56pt, body 16-24pt, micro-labels (e.g. metric subtitles) 12-14pt.',
+    '- Use a deliberate visual hierarchy: titles around text-4xl to text-6xl, body around text-lg to text-2xl, micro-labels around text-xs to text-sm.',
+    '- Make sure foreground and background colors contrast — reading the brand tokens via slides_list({ detail: "detailed" }) tells you what colors the template exposes and what they look like.',
     '- Give each metric on the Traction slide its own clearly-separated region with the big number, a label, and (optionally) a delta.',
     '- Keep components small and focused. It is fine to write 3-4 components instead of one giant one.',
     '',
@@ -168,8 +167,8 @@ const tier2PitchDeck: Scenario = {
     }
 
     // Sanity-check the component sources Claude wrote: at least one of them
-    // should reference the requested metric values, and none should pick a
-    // foreground color identical to the background it sits on.
+    // should reference the requested metric values, and none should reach for
+    // arbitrary hex colors (brand lock).
     const sources = outcome.toolCalls
       .filter((c) => c.name === 'slides_add_component' && !c.isError)
       .map((c) => String(c.input.source ?? ''));
@@ -178,12 +177,13 @@ const tier2PitchDeck: Scenario = {
       sources.some((s) => /5M|ARR|240%|142%|120 customers/i.test(s)),
       'no custom component encodes the specific metric values from the brief',
     );
+    // No raw hex literals in the source — colors should flow through
+    // bg-<token> / text-<token>. We allow #000 / #fff (the resolver itself
+    // returns hex but those are an output of the resolver, not an input).
     mustWarn(
       verdicts,
-      !sources.some((s) =>
-        /color:\s*['"]#0+['"][\s\S]{0,200}backgroundColor:\s*['"]#0+['"]/i.test(s),
-      ),
-      'a component appears to render dark text on a dark background — likely an invisible slide',
+      !sources.some((s) => /['"]#[0-9a-fA-F]{3,8}['"]/.test(s)),
+      'a component contains a raw hex color literal — the brand-locked Tailwind dialect should be used instead (bg-<token>, text-<token>)',
     );
     mustWarn(
       verdicts,

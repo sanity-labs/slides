@@ -119,12 +119,17 @@ const errorResult = (diagnostics: Diagnostic[]): TypecheckResult => {
   return { ok: false, summary, diagnostics };
 };
 
+/**
+ * Short hint appended to every `build_failed` summary so the agent has the
+ * minimum context to retry without re-loading the SKILL.
+ *
+ * **Keep this short.** Per-turn input cost is paid for every typecheck loop;
+ * the SKILL already owns the full Tailwind dialect + readability rules. Mirror
+ * just the primitives and the next-action so the agent knows where to go.
+ */
 const AGENT_HINT = [
-  'Available primitives (import from "@sanity-labs/slides"):',
-  '  • <Slide>           — root of one slide.',
-  '  • <Box rect={...}>  — positioned rectangle. rect: { x, y, w, h } in points.',
-  '  • <Text textStyle={...}>{content}</Text>  — typography. fontFamily: "display" | "body" | "mono".',
-  '  • <Image rect={...} src={...} />',
-  'Canvas: 960pt × 540pt (16:9, CANVAS_16_9).',
-  'Read the error file/line, fix the source via slides_edit_component, and call slides_build again.',
+  'Primitives (from "@sanity-labs/slides"): <Slide>, <Box>, <Text>, <Image>.',
+  'Layout is flex + brand-locked Tailwind. Read slides_list({ detail: "detailed" }) to see the template\'s color and spacing tokens before composing classes.',
+  'On a `bg-<dark>` Box, text inside needs a light token; on a light surface, a dark one. The full SKILL covers the rest.',
+  'Fix the error file/line via slides_edit_component, then call slides_build to re-check.',
 ].join('\n');

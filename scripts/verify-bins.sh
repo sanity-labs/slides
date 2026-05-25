@@ -59,8 +59,14 @@ test -x "$bin_path" || { echo "FAIL: slidesctl not linked at $bin_path after ins
 echo "  ok: slidesctl linked at $bin_path"
 
 usage_out="$(timeout 10 "$bin_path" --help 2>&1)" || true
-grep -q '^Usage: slidesctl' <<<"$usage_out" || { echo "FAIL: --help did not print USAGE:" >&2; echo "$usage_out" | head -20 >&2; exit 1; }
-echo "  ok: --help prints USAGE"
+# oclif prints "USAGE\n  $ slidesctl [COMMAND]" — assert on the bin name +
+# the COMMANDS section so the check survives oclif help-template tweaks.
+grep -q 'slidesctl \[COMMAND\]' <<<"$usage_out" || { echo "FAIL: --help did not print the oclif USAGE block:" >&2; echo "$usage_out" | head -20 >&2; exit 1; }
+grep -q '^COMMANDS' <<<"$usage_out" || { echo "FAIL: --help did not print the COMMANDS section:" >&2; echo "$usage_out" | head -20 >&2; exit 1; }
+for cmd in serve generate list scaffold create-deck skill; do
+  grep -qE "^  ${cmd}([[:space:]]|$)" <<<"$usage_out" || { echo "FAIL: --help did not list the ${cmd} command" >&2; echo "$usage_out" >&2; exit 1; }
+done
+echo "  ok: --help lists every subcommand"
 
 skill_first="$(timeout 10 "$bin_path" skill 2>&1 | head -1)"
 [[ "$skill_first" == '---' ]] || { echo "FAIL: skill output didn't start with YAML '---'" >&2; echo "$skill_first" >&2; exit 1; }
