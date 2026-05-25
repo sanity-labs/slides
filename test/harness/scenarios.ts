@@ -317,7 +317,7 @@ const sanityInvestorDeck: Scenario = {
     '3. **A custom Metric slide** — the template doesn\'t ship one, so write a custom slide called `MetricRow` that displays three side-by-side metrics with a big number, a label, and an optional delta. Use Sanity brand tokens via className (bg-base for the slide background, fg-base for primary text, accent for emphasis, fg-dim for the labels). The three metrics: "$5M ARR (+240% YoY)", "120 paying customers (mid-market US + EU)", "142% net revenue retention".',
     '4. **Closing** — use the template\'s Closing slide, title "Thanks", eyebrow "QnA".',
     '',
-    'When you write the custom MetricRow component, reach for the brand\'s short-form tokens (fg-base, bg-base, fg-dim, accent) via className like `bg-bg-base`, `text-fg-base`, etc. Read `slides_list({ detail: "detailed" })` to confirm the actual token names before composing classes.',
+    'When you write the custom MetricRow component, FIRST read `slides_list({ detail: "detailed" })` to discover (a) the template\'s color/spacing tokens for className, and (b) any `additionalImports` the template opts in to. If the template exposes a chrome-helpers package, import its `<BrandSlide>` wrapper and `<TopLabel>` eyebrow component so the custom slide matches the curated ones visually (same padding, same logo position, same footer). Compose your MetricRow content inside `<BrandSlide>` rather than building a freeform layout that won\'t match the rest of the deck.',
   ].join('\n'),
   maxTurns: 30,
   expect: (outcome) => {
@@ -363,6 +363,14 @@ const sanityInvestorDeck: Scenario = {
       verdicts,
       sources.some((s) => /bg-fg-base|bg-bg-base|text-fg-base|bg-accent|text-fg-dim/.test(s)),
       'custom component did not reach for the short-form brand tokens (fg-base / bg-base / accent / fg-dim)',
+    );
+    // Did the agent reach for the template's chrome helpers (BrandSlide /
+    // TopLabel) via the new additionalImportAllowlist mechanism? If yes,
+    // the custom slide will visually match the curated ones.
+    mustWarn(
+      verdicts,
+      sources.some((s) => /@sanity-labs\/slides-template/.test(s)),
+      "custom component did not import the template's chrome helpers — the custom slide will be visually inconsistent with the curated slides (different padding, missing logo + footer chrome)",
     );
     return verdicts;
   },

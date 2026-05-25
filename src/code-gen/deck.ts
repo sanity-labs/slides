@@ -83,10 +83,17 @@ export const addComponent = async (params: {
   readonly deckPath: string;
   readonly name: string;
   readonly source: string;
+  /**
+   * Extra import specifiers permitted for this component (on top of the
+   * base brand-locked surface). Typically populated from
+   * `Template.additionalImportAllowlist` by the MCP server; pass an empty
+   * array (or omit) for the framework default.
+   */
+  readonly extraImportAllowlist?: readonly string[];
 }): Promise<ComponentOpResult> => {
-  const { deckPath, name, source } = params;
+  const { deckPath, name, source, extraImportAllowlist = [] } = params;
   assertValidComponentName(name);
-  assertAllowedImports(source);
+  assertAllowedImports(source, extraImportAllowlist);
   assertDeckExists(deckPath);
 
   const componentFile = componentPath(deckPath, name);
@@ -121,10 +128,12 @@ export const editComponent = async (params: {
   readonly deckPath: string;
   readonly name: string;
   readonly source: string;
+  /** See `addComponent`'s `extraImportAllowlist`. */
+  readonly extraImportAllowlist?: readonly string[];
 }): Promise<ComponentOpResult> => {
-  const { deckPath, name, source } = params;
+  const { deckPath, name, source, extraImportAllowlist = [] } = params;
   assertValidComponentName(name);
-  assertAllowedImports(source);
+  assertAllowedImports(source, extraImportAllowlist);
   assertDeckExists(deckPath);
 
   const componentFile = componentPath(deckPath, name);

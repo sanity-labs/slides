@@ -192,6 +192,16 @@ const LIST_OUTPUT_SHAPE = {
       }),
     )
     .describe('Every slide type the active template exposes (brand + deck merged).'),
+  additionalImports: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Extra package specifiers the active template permits in agent-authored ' +
+        'Tier-2 components, on top of the base brand-lock (@sanity-labs/slides, ' +
+        "react, zod). Use them to reach for the template's own chrome helpers " +
+        '(e.g. a `<BrandSlide>` wrapper) so custom slides match the curated ones ' +
+        'visually. Only present when detail="detailed" and the template opts in.',
+    ),
 };
 
 const registerListTool = (mcp: McpServer, state: ServerState): void => {
@@ -227,6 +237,7 @@ const registerListTool = (mcp: McpServer, state: ServerState): void => {
         source: (fromDeck.has(name) ? 'deck' : 'template') as 'template' | 'deck',
         ...(wantSchemas ? { inputJsonSchema: zodToJsonSchema(c.schema, JSON_SCHEMA_OPTIONS) } : {}),
       }));
+      const extras = effective.additionalImportAllowlist ?? [];
       const lines = [`Template: ${effective.name}`];
       if (state.deck) lines.push(`Deck:     ${state.deck.path}`);
       lines.push('');
@@ -238,6 +249,13 @@ const registerListTool = (mcp: McpServer, state: ServerState): void => {
           const tag = s.source === 'deck' ? ' [deck]' : '';
           lines.push(`  • ${s.name}${tag} — ${s.description}`);
         }
+      }
+      if (wantSchemas && extras.length > 0) {
+        lines.push('');
+        lines.push(
+          'Extra imports permitted in agent-authored components (on top of the base allowlist):',
+        );
+        for (const ext of extras) lines.push(`  • ${ext}`);
       }
       if (!wantSchemas && slides.length > 0) {
         lines.push('');
@@ -252,6 +270,7 @@ const registerListTool = (mcp: McpServer, state: ServerState): void => {
           template: effective.name,
           deckPath: state.deck?.path ?? null,
           slides,
+          ...(wantSchemas && extras.length > 0 ? { additionalImports: [...extras] } : {}),
         },
       };
     },
@@ -526,7 +545,13 @@ const registerCodeGenTools = (mcp: McpServer, state: ServerState): void => {
     },
     async ({ deckPath, name, source }) => {
       try {
-        const result = await addComponent({ deckPath, name, source });
+        const extras = effectiveTemplate(state).additionalImportAllowlist ?? [];
+        const result = await addComponent({
+          deckPath,
+          name,
+          source,
+          extraImportAllowlist: extras,
+        });
         adoptOpResult(state, result);
         return successResult({ ...result, template: effectiveTemplate(state) });
       } catch (err) {
@@ -558,7 +583,13 @@ const registerCodeGenTools = (mcp: McpServer, state: ServerState): void => {
     },
     async ({ deckPath, name, source }) => {
       try {
-        const result = await editComponent({ deckPath, name, source });
+        const extras = effectiveTemplate(state).additionalImportAllowlist ?? [];
+        const result = await editComponent({
+          deckPath,
+          name,
+          source,
+          extraImportAllowlist: extras,
+        });
         adoptOpResult(state, result);
         return successResult({ ...result, template: effectiveTemplate(state) });
       } catch (err) {
