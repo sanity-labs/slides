@@ -94,6 +94,13 @@ export type Scenario = {
   readonly expect: ExpectFn;
   /** Override the agent-loop turn cap (default 12). */
   readonly maxTurns?: number;
+  /**
+   * Override the template the MCP server loads. Defaults to the framework's
+   * minimal fixture template; set this to point at a brand template repo
+   * (e.g. `/path/to/slides-template/src/index.ts`) to exercise the agent
+   * against a real curated component set.
+   */
+  readonly templatePath?: string;
 };
 
 export type ScenarioResult = {
@@ -130,9 +137,10 @@ const runOne = async (
   const outputDir = path.join(scenarioTmp, 'output');
   await fs.mkdir(outputDir, { recursive: true });
 
+  const templatePath = scenario.templatePath ?? FIXTURE_TEMPLATE;
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [CLI_PATH, 'serve', '--template', FIXTURE_TEMPLATE, '--output', outputDir],
+    args: [CLI_PATH, 'serve', '--template', templatePath, '--output', outputDir],
     stderr: 'pipe',
     cwd: scenarioTmp,
   });
