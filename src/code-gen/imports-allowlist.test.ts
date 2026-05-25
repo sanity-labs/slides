@@ -58,4 +58,31 @@ describe('imports-allowlist', () => {
     `;
     expect(findDisallowedImports(bad)).toEqual(['lodash']);
   });
+
+  test('extraAllowlist extends the base surface per-template', () => {
+    const src = `
+      import { Slide } from '@sanity-labs/slides';
+      import { BrandSlide, TopLabel } from '@sanity-labs/slides-template';
+    `;
+    // Without the extra, the template package is rejected.
+    expect(findDisallowedImports(src)).toEqual(['@sanity-labs/slides-template']);
+    expect(() => assertAllowedImports(src)).toThrow(/@sanity-labs\/slides-template/);
+
+    // With it, the same source passes.
+    expect(findDisallowedImports(src, ['@sanity-labs/slides-template'])).toEqual([]);
+    expect(() => assertAllowedImports(src, ['@sanity-labs/slides-template'])).not.toThrow();
+  });
+
+  test('error message lists base + extras so the agent sees the full surface', () => {
+    const src = `import { exec } from 'node:child_process';`;
+    try {
+      assertAllowedImports(src, ['@acme/brand', '@acme/icons']);
+      throw new Error('expected throw');
+    } catch (err) {
+      const msg = (err as Error).message;
+      expect(msg).toMatch(/@sanity-labs\/slides/);
+      expect(msg).toMatch(/@acme\/brand/);
+      expect(msg).toMatch(/@acme\/icons/);
+    }
+  });
 });

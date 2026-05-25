@@ -32,6 +32,24 @@ export interface Template {
   readonly spacing: Readonly<Record<string, Pt>>;
   readonly components: Readonly<Record<string, TemplateComponent>>;
   readonly preview?: () => ReactNode;
+  /**
+   * Extra package specifiers an agent-authored Tier-2 custom component may
+   * `import` from, on top of the base allowlist (`@sanity-labs/slides`,
+   * `react`, `react/jsx-runtime`, `zod`). Use this to expose the template's
+   * own brand-chrome helpers — a `<BrandSlide>` that wraps content with the
+   * logo + footer, a `<TopLabel>` that positions an eyebrow at the canonical
+   * spot — so custom slides match the curated ones visually.
+   *
+   * The template author opts in. The framework default stays
+   * brand-locked-only (no template extras). Listing a specifier here does
+   * **not** install or resolve the package; the deck project's
+   * `node_modules` must contain it independently (typically because the
+   * deck inherits the template's runtime dependencies).
+   *
+   * Surfaced through `slides_list({ detail: "detailed" })` so the agent
+   * knows which extras it can reach for.
+   */
+  readonly additionalImportAllowlist?: ReadonlyArray<string>;
 }
 
 export const defineTemplate = (template: Template): Template => template;

@@ -4,7 +4,7 @@ description: Drive a `@sanity-labs/slides` MCP server to generate brand-locked `
 license: MIT
 metadata:
   author: sanity-labs
-  version: '3.2.0'
+  version: '3.3.0'
 ---
 
 # @sanity-labs/slides MCP
@@ -38,7 +38,8 @@ Most decks mix the two: a few prebuilt slide types for the parts that fit, custo
 
 - Tailwind classes outside the allowlist are rejected with `UnknownClassError`. Stock Tailwind (`bg-pink-500`, `text-[20px]`, `hover:…`, responsive variants) is not allowed. Call `slides_list({ detail: "detailed" })` to see the template's actual tokens.
 - Component names must come from `slides_list`. To add a new slide type use `slides_add_component`; PascalCase only.
-- Custom components may only import `@sanity-labs/slides`, `react`, and `zod`. Other imports throw `add_component_failed` before any file is written.
+- Custom components may only import `@sanity-labs/slides`, `react`, and `zod` — plus any **extras the active template opts into** via `additionalImportAllowlist`. Read `slides_list({ detail: "detailed" })`; its `additionalImports` field lists the template-specific extras (typically a brand-chrome helper package like `@sanity-labs/slides-template`). Other imports throw `add_component_failed` before any file is written.
+- When a template lists an extras package, **prefer its chrome helpers over re-rolling the layout from primitives.** A brand template's `<BrandSlide>` / `<TopLabel>` / footer chrome exists so custom slides match the curated ones — same padding, same logo position, same footer text. A custom slide that uses raw primitives on a template that exposes chrome helpers will be visibly inconsistent with the deck's other slides.
 - The `<generated-imports>` / `<generated-components>` anchors in a deck's `src/index.ts` are owned by the code-gen tools — hand edits get clobbered.
 
 ### Working principles

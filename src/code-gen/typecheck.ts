@@ -130,6 +130,7 @@ const errorResult = (diagnostics: Diagnostic[]): TypecheckResult => {
 const AGENT_HINT = [
   'Primitives (from "@sanity-labs/slides"): <Slide>, <Box>, <Text>, <Image>.',
   'Layout is flex + brand-locked Tailwind. Read slides_list({ detail: "detailed" }) to see the template\'s color and spacing tokens before composing classes.',
+  'If `additionalImports` is listed in slides_list({ detail: "detailed" }), those packages are importable too — prefer the template\'s chrome helpers over re-rolling layout from primitives.',
   'On a `bg-<dark>` Box, text inside needs a light token; on a light surface, a dark one. The full SKILL covers the rest.',
   'Fix the error file/line via slides_edit_component, then call slides_build to re-check.',
 ].join('\n');
