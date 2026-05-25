@@ -38,6 +38,13 @@ describe('framework smoke test (fixture template → PptxSlidesRuntime → .pptx
       expect(buf[0]).toBe(0x50);
       expect(buf[1]).toBe(0x4b);
       expect(buf.length).toBeGreaterThan(2000);
+      // Magic-byte + size assertions catch nothing once pptxgenjs returns its
+      // empty-deck shell. We need to confirm the .pptx actually contains
+      // slide content. The local filenames in a ZIP appear inline (uncompressed,
+      // null-terminator-free) right next to each entry's local file header, so
+      // searching for `ppt/slides/slide1.xml` in the raw bytes is a robust check
+      // without pulling in a ZIP parser.
+      expect(buf.toString('latin1')).toContain('ppt/slides/slide1.xml');
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }

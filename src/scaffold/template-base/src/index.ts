@@ -1,4 +1,4 @@
-import { CANVAS_16_9, defineTemplate, defineTemplateComponent } from '../../../core/index.js';
+import { CANVAS_16_9, defineTemplate, defineTemplateComponent } from '@sanity-labs/slides';
 import { Cover, CoverSchema } from './components/Cover.js';
 import { preview } from './preview.js';
 

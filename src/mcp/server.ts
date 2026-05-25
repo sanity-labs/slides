@@ -1,20 +1,35 @@
 /**
  * The template-agnostic MCP server framework.
  *
- * createSlideServer({ template, runtime }) builds an McpServer that exposes
- * three kinds of tools:
+ * Curated set of seven tools, organised around two outcomes the agent ever
+ * wants to achieve:
  *
- * 1. **`slides_list`** — returns the list of slide types the loaded template
- *    supports, with descriptions. One round-trip to discover the surface.
+ * **Pick a slide type from the template and render** (the "quick path"):
  *
- * 2. **One tool per slide type**, named `<toolPrefix><snake_case>` (default
- *    prefix `slides_add_`). Validates user-supplied props against the
- *    component's Zod schema and echoes them back as a slide spec. Used
- *    iteratively by an LLM to assemble a deck before calling `slides_create`.
+ *   - `slides_list`     — discover which slide types are available.
+ *   - `slides_validate` — pre-validate one slide's props against its schema.
+ *   - `slides_create`   — render a sequence of slide specs to `.pptx`.
  *
- * 3. **`slides_create`** — full pipeline. Takes `{ title, slides }`, renders
- *    via the reconciler, applies through the PPTX runtime, writes the .pptx
- *    file to disk, and returns the path.
+ * **Write custom slide components** (the "code-gen power path"):
+ *
+ *   - `slides_create_deck`     — scaffold a writable deck project.
+ *   - `slides_add_component`   — write a new `.tsx` slide + register it.
+ *   - `slides_edit_component`  — overwrite an existing component's source.
+ *   - `slides_build`           — re-run tsc on the deck.
+ *
+ * Tools share a single mutable `activeTemplate` ref: the template the
+ * server started with, or whichever deck was most recently touched by a
+ * code-gen tool. This is how agent-written components become addressable
+ * through `slides_list` / `slides_validate` / `slides_create` without
+ * registering new tools per component.
+ *
+ * Why a single `slides_validate` instead of one `slides_add_<type>` tool
+ * per slide type: per-type tools load upfront into every MCP session and
+ * burn ~200 tokens each in tool definitions. A template with 20 slide
+ * types would cost ~4k tokens at session start. The Anthropic guidance
+ * (Writing tools for agents, Sep 2025; Code execution with MCP, Nov 2025)
+ * is to keep tool counts low and use schema-on-demand patterns — that's
+ * what `slides_list({ detail: 'detailed' })` is for.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -22,14 +37,21 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 import type { ZodError } from 'zod';
-import type { SlidesRuntime, Template } from '../core/index.js';
+import { zodToJsonSchema } from 'zod-to-json-schema';
+import {
+  addComponent,
+  buildDeck,
+  createDeck,
+  editComponent,
+  type ComponentOpResult,
+} from '../code-gen/index.js';
+import { CANVAS_16_9, type SlidesRuntime, type Template } from '../core/index.js';
 import { errorResult, zodErrorResult } from './errors.js';
 import { renderSlides } from './render.js';
-import { deriveComponentTools, type DerivedTool } from './schema.js';
 
 /** Configuration accepted by createSlideServer. */
 export interface SlideServerConfig {
-  /** The template (component vocabulary + tokens) the server exposes. */
+  /** The initial template (slide-component vocabulary + tokens). */
   readonly template: Template;
   /** The PPTX runtime used to materialize presentations. */
   readonly runtime: SlidesRuntime;
@@ -38,12 +60,6 @@ export interface SlideServerConfig {
    * from the template and version `'0.1.0'`.
    */
   readonly serverInfo?: { readonly name: string; readonly version: string };
-  /**
-   * Override the per-slide-type tool-name prefix. Default: `'slides_add_'`.
-   * Use this when the server emits something other than slide decks (a
-   * report-builder might use `'report_add_'`, etc.).
-   */
-  readonly toolPrefix?: string;
 }
 
 /** Options accepted by server.start. */
@@ -53,8 +69,8 @@ export type StartOptions = { readonly transport: 'stdio' };
 export interface SlideServer {
   /** The underlying MCP server. Exposed for advanced callers. */
   readonly mcp: McpServer;
-  /** Tool definitions derived from the template. */
-  readonly tools: ReadonlyArray<DerivedTool>;
+  /** The currently active template (initial OR a loaded deck). */
+  readonly activeTemplate: Template;
   /** Connect to the given transport. Lower-level than start. */
   connect(transport: Transport): Promise<void>;
   /** Start serving over the configured transport. */
@@ -67,20 +83,24 @@ export interface SlideServer {
 export const createSlideServer = (config: SlideServerConfig): SlideServer => {
   const { template, runtime } = config;
   const serverInfo = config.serverInfo ?? {
-    name: 'react-pptx-mcp:' + template.name,
+    name: 'sanity-labs-slides:' + template.name,
     version: '0.1.0',
   };
 
-  const mcp = new McpServer(serverInfo);
-  const tools = deriveComponentTools(template, config.toolPrefix);
+  const state: ServerState = { base: template, deck: undefined };
 
-  registerListTool(mcp, template, tools);
-  registerComponentTools(mcp, tools);
-  registerCreateTool(mcp, runtime, template);
+  const mcp = new McpServer(serverInfo);
+
+  registerListTool(mcp, state);
+  registerValidateTool(mcp, state);
+  registerCreateTool(mcp, runtime, state);
+  registerCodeGenTools(mcp, state);
 
   return {
     mcp,
-    tools,
+    get activeTemplate() {
+      return effectiveTemplate(state);
+    },
     connect: (transport) => mcp.connect(transport),
     start: async (options) => {
       switch (options.transport) {
@@ -94,34 +114,101 @@ export const createSlideServer = (config: SlideServerConfig): SlideServer => {
   };
 };
 
+/**
+ * Internal mutable state held by the server.
+ *
+ * `base` is the brand template the server was started with — it stays
+ * untouched for the lifetime of the process. `deck` is whatever
+ * agent-authored deck is currently loaded (if any). Tools render against
+ * the *effective* template, which is `base` plus the deck's components
+ * layered on top — see {@link effectiveTemplate}.
+ */
+type ServerState = {
+  readonly base: Template;
+  deck: { readonly template: Template; readonly path: string } | undefined;
+};
+
+/**
+ * Merge the brand template's slide vocabulary with whatever deck is
+ * currently loaded. Deck components shadow brand components on name
+ * collision (lets the agent override a brand slide if the user asks
+ * for a variant). Brand fonts / colors / canvas always win — the deck
+ * never overrides the brand lock.
+ */
+const effectiveTemplate = (state: ServerState): Template => {
+  if (!state.deck) return state.base;
+  return {
+    ...state.base,
+    components: { ...state.base.components, ...state.deck.template.components },
+  };
+};
+
+/** Names of every component contributed by the loaded deck (empty when no deck). */
+const deckComponentNames = (state: ServerState): ReadonlySet<string> =>
+  new Set(state.deck ? Object.keys(state.deck.template.components) : []);
+
 // ---------------------------------------------------------------------------
 // slides_list
 // ---------------------------------------------------------------------------
 
+const LIST_INPUT_SHAPE = {
+  detail: z
+    .enum(['concise', 'detailed'])
+    .optional()
+    .describe(
+      'How much to return per slide type. ' +
+        '"concise" (default): just name + description, ~30 tokens per entry. ' +
+        '"detailed": adds the full JSON Schema for each slide type\'s props. ' +
+        'Use "detailed" right before composing a slides_create call so you ' +
+        'can fill props correctly without guessing.',
+    ),
+};
+
 const LIST_OUTPUT_SHAPE = {
-  template: z.string().describe('The name of the loaded template.'),
+  template: z.string().describe('The name of the active template.'),
+  deckPath: z
+    .string()
+    .nullable()
+    .describe('The deck project the active template was loaded from, if any.'),
   slides: z
     .array(
       z.object({
         name: z.string().describe('Slide-type name, e.g. "Cover".'),
-        toolName: z.string().describe('MCP tool name for this slide type.'),
         description: z.string().describe('When to use this slide type.'),
+        source: z
+          .enum(['template', 'deck'])
+          .describe(
+            'Where this slide type comes from. "template" entries live in the read-only ' +
+              'brand template; "deck" entries were written into the active deck by ' +
+              'slides_add_component and can be modified with slides_edit_component.',
+          ),
+        inputJsonSchema: z
+          .record(z.unknown())
+          .optional()
+          .describe(
+            "JSON Schema for this slide type's props. Only present when " +
+              'the caller passed detail="detailed".',
+          ),
       }),
     )
-    .describe('Every slide type the template exposes.'),
+    .describe('Every slide type the active template exposes (brand + deck merged).'),
 };
 
-const registerListTool = (
-  mcp: McpServer,
-  template: Template,
-  tools: ReadonlyArray<DerivedTool>,
-): void => {
+const registerListTool = (mcp: McpServer, state: ServerState): void => {
   mcp.registerTool(
     'slides_list',
     {
+      title: 'List slide types',
       description:
-        'List every slide type this template supports, with descriptions and the per-type tool names. ' +
-        'Call once at the start of a deck-building session to learn the surface.',
+        'List every slide type the active template supports. ' +
+        'Reflects whichever deck the server has loaded most recently; if none, ' +
+        "it's the template the server was started with. " +
+        "Call once at the start of a session to learn what's available, and " +
+        'again after any code-gen operation (slides_create_deck, slides_add_component, ' +
+        'slides_edit_component) to refresh. ' +
+        'Pass `detail: "detailed"` to also get the JSON Schema for each slide ' +
+        "type's props — useful right before composing a slides_create call.",
+      inputSchema: LIST_INPUT_SHAPE,
       outputSchema: LIST_OUTPUT_SHAPE,
       annotations: {
         readOnlyHint: true,
@@ -130,34 +217,57 @@ const registerListTool = (
         openWorldHint: false,
       },
     },
-    async () => {
-      const slides = tools.map((t) => ({
-        name: t.componentName,
-        toolName: t.name,
-        description: t.description,
+    async ({ detail }) => {
+      const effective = effectiveTemplate(state);
+      const fromDeck = deckComponentNames(state);
+      const wantSchemas = detail === 'detailed';
+      const slides = Object.entries(effective.components).map(([name, c]) => ({
+        name,
+        description: c.description,
+        source: (fromDeck.has(name) ? 'deck' : 'template') as 'template' | 'deck',
+        ...(wantSchemas ? { inputJsonSchema: zodToJsonSchema(c.schema, JSON_SCHEMA_OPTIONS) } : {}),
       }));
-      const lines = [
-        `Template: ${template.name}`,
-        '',
-        'Available slide types:',
-        ...slides.map((s) => `  • ${s.name} (${s.toolName}) — ${s.description}`),
-        '',
-        'Call slides_add_<type> to validate a single slide. ' +
-          'Call slides_create with an array of slide specs to write a .pptx file.',
-      ].join('\n');
+      const lines = [`Template: ${effective.name}`];
+      if (state.deck) lines.push(`Deck:     ${state.deck.path}`);
+      lines.push('');
+      lines.push('Available slide types:');
+      if (slides.length === 0) {
+        lines.push('  (none — call slides_add_component to add one.)');
+      } else {
+        for (const s of slides) {
+          const tag = s.source === 'deck' ? ' [deck]' : '';
+          lines.push(`  • ${s.name}${tag} — ${s.description}`);
+        }
+      }
+      if (!wantSchemas && slides.length > 0) {
+        lines.push('');
+        lines.push(
+          'Call slides_list with detail="detailed" to see the JSON Schema for each ' +
+            "slide type's props.",
+        );
+      }
       return {
-        content: [{ type: 'text' as const, text: lines }],
-        structuredContent: { template: template.name, slides },
+        content: [{ type: 'text' as const, text: lines.join('\n') }],
+        structuredContent: {
+          template: effective.name,
+          deckPath: state.deck?.path ?? null,
+          slides,
+        },
       };
     },
   );
 };
 
 // ---------------------------------------------------------------------------
-// slides_add_<component>
+// slides_validate
 // ---------------------------------------------------------------------------
 
-const COMPONENT_OUTPUT_SHAPE = {
+const VALIDATE_INPUT_SHAPE = {
+  component: z.string().min(1).describe('Slide-type name from slides_list, e.g. "Cover".'),
+  props: z.record(z.unknown()).describe("Props matching the slide type's JSON Schema."),
+};
+
+const VALIDATE_OUTPUT_SHAPE = {
   slide: z
     .object({
       component: z.string(),
@@ -166,47 +276,63 @@ const COMPONENT_OUTPUT_SHAPE = {
     .describe('A single validated slide spec, ready to be passed to slides_create.'),
 };
 
-const registerComponentTools = (mcp: McpServer, tools: readonly DerivedTool[]): void => {
-  for (const tool of tools) {
-    mcp.registerTool(
-      tool.name,
-      {
-        description: tool.description,
-        inputSchema: tool.inputShape,
-        outputSchema: COMPONENT_OUTPUT_SHAPE,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: false,
-        },
+const registerValidateTool = (mcp: McpServer, state: ServerState): void => {
+  mcp.registerTool(
+    'slides_validate',
+    {
+      title: 'Validate a single slide',
+      description:
+        "Validate one { component, props } pair against the active template's schema " +
+        'for that component. Optional but useful when composing a complex slide (grids, ' +
+        'lists, charts) — it catches schema errors with field-level paths before you ' +
+        'pay the cost of a full slides_create. ' +
+        'Returns the validated slide spec on success; returns a structured error with ' +
+        '`issues[]` (each carrying a `path` and `message`) on failure. ' +
+        'You do not need to call this if you have already checked props against the ' +
+        'inputJsonSchema from slides_list(detail="detailed").',
+      inputSchema: VALIDATE_INPUT_SHAPE,
+      outputSchema: VALIDATE_OUTPUT_SHAPE,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
       },
-      async (rawProps) => {
-        const parsed = tool.inputSchema.safeParse(rawProps);
-        if (!parsed.success) {
-          return zodErrorResult(
-            `Validation error in ${tool.name} props:`,
-            parsed.error as ZodError,
-            "Refer to this tool's input schema and retry.",
-          );
-        }
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text:
-                `Validated ${tool.componentName} props. ` +
-                `Pass { component: "${tool.componentName}", props: <these> } ` +
-                `as one entry of slides_create.slides.`,
-            },
-          ],
-          structuredContent: {
-            slide: { component: tool.componentName, props: parsed.data },
+    },
+    async ({ component, props }) => {
+      const effective = effectiveTemplate(state);
+      const entry = effective.components[component];
+      if (!entry) {
+        const known = Object.keys(effective.components).sort().join(', ') || '(none)';
+        return errorResult(
+          'unknown_component',
+          `Unknown slide type "${component}". Known types in template "${effective.name}": ${known}. ` +
+            `Call slides_list to refresh.`,
+        );
+      }
+      const parsed = entry.schema.safeParse(props);
+      if (!parsed.success) {
+        return zodErrorResult(
+          `Validation error in slides_validate props for "${component}":`,
+          parsed.error as ZodError,
+          'Fix the listed fields and call slides_validate again, or pass the corrected ' +
+            'props directly to slides_create — it runs the same validation.',
+        );
+      }
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text:
+              `Validated ${component} props. ` +
+              `Pass { component: "${component}", props: <these> } as one entry of ` +
+              `slides_create.slides.`,
           },
-        };
-      },
-    );
-  }
+        ],
+        structuredContent: { slide: { component, props: parsed.data } },
+      };
+    },
+  );
 };
 
 // ---------------------------------------------------------------------------
@@ -218,9 +344,9 @@ const SLIDE_SPEC_SCHEMA = z
     component: z.string().min(1).describe('The slide-type name, e.g. "Cover".'),
     props: z
       .record(z.unknown())
-      .describe("Props matching that slide type's input schema (see slides_add_<type>)."),
+      .describe("Props matching that slide type's input schema (see slides_list)."),
   })
-  .describe('One slide to add. Same shape as the structuredContent of slides_add_<type>.');
+  .describe('One slide to add.');
 
 const CREATE_INPUT_SHAPE = {
   title: z.string().min(1).describe('Deck title — used as the .pptx filename stem.'),
@@ -232,14 +358,18 @@ const CREATE_OUTPUT_SHAPE = {
   slideCount: z.number().int().nonnegative(),
 };
 
-const registerCreateTool = (mcp: McpServer, runtime: SlidesRuntime, template: Template): void => {
+const registerCreateTool = (mcp: McpServer, runtime: SlidesRuntime, state: ServerState): void => {
   mcp.registerTool(
     'slides_create',
     {
+      title: 'Render deck to .pptx',
       description:
-        'Generate a template-locked .pptx presentation from a sequence of slide specs and write it to disk. ' +
-        'Returns the absolute file path. Each spec is { component, props } — ' +
-        'use the per-type slides_add_<type> tools first to discover schemas and validate props.',
+        'Generate a .pptx from a sequence of slide specs and write it to disk. ' +
+        'Uses whichever template the server has active — call slides_list to inspect it. ' +
+        'Each spec is { component, props }. ' +
+        'Returns the absolute file path; surface it to the user verbatim. ' +
+        'Validation runs end-to-end before any file is written; on a per-slide schema ' +
+        'failure the response includes `code: "validation_error"` and an `issues[]` array.',
       inputSchema: CREATE_INPUT_SHAPE,
       outputSchema: CREATE_OUTPUT_SHAPE,
       annotations: {
@@ -251,7 +381,7 @@ const registerCreateTool = (mcp: McpServer, runtime: SlidesRuntime, template: Te
     },
     async (input) => {
       const result = await renderSlides({
-        template,
+        template: effectiveTemplate(state),
         runtime,
         title: input.title,
         slides: input.slides,
@@ -274,3 +404,275 @@ const registerCreateTool = (mcp: McpServer, runtime: SlidesRuntime, template: Te
     },
   );
 };
+
+// ---------------------------------------------------------------------------
+// Code-gen tools (create_deck / add_component / edit_component / build)
+// ---------------------------------------------------------------------------
+
+const CREATE_DECK_INPUT_SHAPE = {
+  dir: z
+    .string()
+    .min(1)
+    .describe(
+      'Target directory for the deck project. May be relative (resolved against cwd) ' +
+        'or absolute. Created if missing; must be empty if it exists.',
+    ),
+  name: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Optional deck name. Defaults to the directory name (kebab-cased).'),
+};
+
+const ADD_COMPONENT_INPUT_SHAPE = {
+  deckPath: z
+    .string()
+    .min(1)
+    .describe('Absolute path to the deck project (returned by slides_create_deck).'),
+  name: z.string().min(1).describe('PascalCase component name. Example: "RevenueChart".'),
+  source: z
+    .string()
+    .min(1)
+    .describe(
+      'Full TSX source. Must `import { Slide, Box, Text } from "@sanity-labs/slides"`, ' +
+        '`import { z } from "zod"`, and `import type { ReactElement } from "react"` only — ' +
+        'no other imports are allowed and the file will be rejected if it tries. ' +
+        'Must export both a Zod schema (`<Name>Schema`) and a React component (`<Name>`). ' +
+        'See the SKILL for the canonical shape.',
+    ),
+};
+
+const EDIT_COMPONENT_INPUT_SHAPE = ADD_COMPONENT_INPUT_SHAPE;
+
+const BUILD_INPUT_SHAPE = {
+  deckPath: z.string().min(1).describe('Absolute path to the deck project.'),
+};
+
+const CODE_GEN_OUTPUT_SHAPE = {
+  deckPath: z.string(),
+  template: z
+    .string()
+    .nullable()
+    .describe('Name of the deck template after the operation, or null if it failed to load.'),
+  registeredComponents: z
+    .array(z.string())
+    .describe('Names of every slide type registered in the deck after this operation.'),
+  typecheck: z
+    .object({
+      ok: z.boolean(),
+      summary: z.string(),
+    })
+    .describe('Typecheck status. If not ok, summary contains formatted errors.'),
+};
+
+const registerCodeGenTools = (mcp: McpServer, state: ServerState): void => {
+  mcp.registerTool(
+    'slides_create_deck',
+    {
+      title: 'Create a deck project',
+      description:
+        'Scaffold an agent-writable deck project at the given directory. ' +
+        'Returns the absolute deck path. ' +
+        "After this call the server's active template swaps to the new deck — " +
+        'slides_list shows its components (initially empty), slides_validate validates ' +
+        'against the deck schema, and slides_create renders from it. ' +
+        'Templates stay read-only; the deck is where the agent writes custom slide ' +
+        'components.',
+      inputSchema: CREATE_DECK_INPUT_SHAPE,
+      outputSchema: CODE_GEN_OUTPUT_SHAPE,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ dir, name }) => {
+      try {
+        const result = await createDeck({ dir, ...(name ? { name } : {}) });
+        state.deck = { template: result.template, path: result.deckPath };
+        return successResult({
+          deckPath: result.deckPath,
+          template: effectiveTemplate(state),
+          typecheck: { ok: true, summary: 'Scaffolded a fresh deck.' },
+        });
+      } catch (err) {
+        return errorResult('create_deck_failed', errMessage(err));
+      }
+    },
+  );
+
+  mcp.registerTool(
+    'slides_add_component',
+    {
+      title: 'Add slide component',
+      description:
+        'Write a new TSX slide component into the deck and register it. ' +
+        'The source must export `<Name>` (React component) and `<Name>Schema` (Zod). ' +
+        'Imports are restricted to @sanity-labs/slides, react, and zod; any other ' +
+        'import causes immediate rejection (no file is written). ' +
+        'On success the active template is reloaded so the new type is visible to ' +
+        'slides_list, slides_validate, and slides_create. ' +
+        'If the typecheck fails, the file is kept on disk and the diagnostics are ' +
+        'returned — call slides_edit_component to fix the source.',
+      inputSchema: ADD_COMPONENT_INPUT_SHAPE,
+      outputSchema: CODE_GEN_OUTPUT_SHAPE,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ deckPath, name, source }) => {
+      try {
+        const result = await addComponent({ deckPath, name, source });
+        adoptOpResult(state, result);
+        return successResult({ ...result, template: effectiveTemplate(state) });
+      } catch (err) {
+        return errorResult('add_component_failed', errMessage(err));
+      }
+    },
+  );
+
+  mcp.registerTool(
+    'slides_edit_component',
+    {
+      title: 'Edit slide component',
+      description:
+        "Overwrite an existing component's TSX source. " +
+        'Useful for fixing typecheck errors from slides_add_component, refining a slide ' +
+        'after rendering, or adjusting the schema. ' +
+        'Imports are restricted to the same allowlist as slides_add_component. ' +
+        'On success the active template is reloaded so the updated schema is visible to ' +
+        'slides_list / slides_validate. ' +
+        'On typecheck failure the file is kept on disk and the diagnostics are returned.',
+      inputSchema: EDIT_COMPONENT_INPUT_SHAPE,
+      outputSchema: CODE_GEN_OUTPUT_SHAPE,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ deckPath, name, source }) => {
+      try {
+        const result = await editComponent({ deckPath, name, source });
+        adoptOpResult(state, result);
+        return successResult({ ...result, template: effectiveTemplate(state) });
+      } catch (err) {
+        return errorResult('edit_component_failed', errMessage(err));
+      }
+    },
+  );
+
+  mcp.registerTool(
+    'slides_build',
+    {
+      title: 'Type-check the deck',
+      description:
+        'Run the deck through tsc and return formatted diagnostics. ' +
+        'No files are written. ' +
+        'Call this between code-gen operations to confirm the deck is in a renderable ' +
+        'state; not necessary right after slides_add_component or slides_edit_component, ' +
+        'which already typecheck. ' +
+        'Returns up to 20 diagnostics, each carrying file/line/code/message; cascades are ' +
+        'truncated with a hint to fix listed errors first.',
+      inputSchema: BUILD_INPUT_SHAPE,
+      outputSchema: CODE_GEN_OUTPUT_SHAPE,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ deckPath }) => {
+      try {
+        const result = await buildDeck(deckPath);
+        adoptOpResult(state, result);
+        return successResult({ ...result, template: effectiveTemplate(state) });
+      } catch (err) {
+        return errorResult('build_failed', errMessage(err));
+      }
+    },
+  );
+};
+
+const adoptOpResult = (state: ServerState, result: ComponentOpResult): void => {
+  if (result.template) {
+    state.deck = { template: result.template, path: result.deckPath };
+  } else if (state.deck === undefined || state.deck.path !== result.deckPath) {
+    // Typecheck failed before we could reload the deck template, but we
+    // still want subsequent calls to address the same deck path.
+    state.deck = state.deck ?? {
+      template: emptyDeckPlaceholder(result.deckPath),
+      path: result.deckPath,
+    };
+  }
+};
+
+/**
+ * When a code-gen op leaves the deck in a broken state (typecheck failed,
+ * template didn't reload), we still want the server to remember which deck
+ * the agent is working on so the next add/edit/build targets it. Use a
+ * placeholder template carrying just the deck name — it'll be replaced on
+ * the next successful reload.
+ */
+const emptyDeckPlaceholder = (deckPath: string): Template => ({
+  name: deckPath.split('/').pop() ?? 'deck',
+  canvas: CANVAS_16_9,
+  fonts: { display: [], body: [], mono: [] },
+  colors: {},
+  typography: {},
+  spacing: {},
+  components: {},
+});
+
+const successResult = (
+  input:
+    | { deckPath: string; template: Template; typecheck: { ok: boolean; summary: string } }
+    | ComponentOpResult,
+): {
+  content: Array<{ type: 'text'; text: string }>;
+  structuredContent: Record<string, unknown>;
+} => {
+  const deckPath = input.deckPath;
+  const template = (input as { template?: Template }).template;
+  const typecheck = input.typecheck;
+  const registered = template ? Object.keys(template.components) : [];
+  const text = [
+    `${typecheck.summary}`,
+    '',
+    `Deck:     ${deckPath}`,
+    template ? `Template: ${template.name}` : 'Template: (not loaded — fix typecheck errors first)',
+    registered.length > 0
+      ? `Registered components: ${registered.join(', ')}`
+      : 'Registered components: (none yet)',
+  ].join('\n');
+  return {
+    content: [{ type: 'text', text }],
+    structuredContent: {
+      deckPath,
+      template: template?.name ?? null,
+      registeredComponents: registered,
+      typecheck: { ok: typecheck.ok, summary: typecheck.summary },
+    },
+  };
+};
+
+const errMessage = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+
+/**
+ * Options passed to `zod-to-json-schema` for slides_list(detail="detailed").
+ *
+ * - `target: 'jsonSchema7'` matches the dialect MCP servers emit and what the
+ *   SDK produces internally for tool input schemas.
+ * - `$refStrategy: 'none'` inlines all sub-schemas — easier for the agent to
+ *   read in one pass, and slide-prop schemas are usually shallow.
+ */
+const JSON_SCHEMA_OPTIONS = {
+  target: 'jsonSchema7',
+  $refStrategy: 'none',
+} as const;

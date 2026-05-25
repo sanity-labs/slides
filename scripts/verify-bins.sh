@@ -16,6 +16,9 @@ test -f dist/cli.js                 || { echo "FAIL: dist/cli.js missing — run
 test -f dist/dev/bin/slides-dev.mjs || { echo "FAIL: dist/dev/bin/slides-dev.mjs missing" >&2; exit 1; }
 test -f SKILL.md                    || { echo "FAIL: SKILL.md missing" >&2; exit 1; }
 test -d dist/scaffold/template-base || { echo "FAIL: scaffold template-base not copied to dist/" >&2; exit 1; }
+test -d dist/scaffold/deck-base     || { echo "FAIL: scaffold deck-base not copied to dist/" >&2; exit 1; }
+test -f runtime-tsconfig.json       || { echo "FAIL: runtime-tsconfig.json missing at package root" >&2; exit 1; }
+node -e "const p=require('./package.json'); if (!(p.files||[]).includes('runtime-tsconfig.json')) { console.error('FAIL: runtime-tsconfig.json not in package.json files[]'); process.exit(1); }"
 
 shebang="$(head -n 1 dist/cli.js)"
 [[ "$shebang" == "#!/usr/bin/env node" ]] || { echo "FAIL: dist/cli.js missing node shebang (got: $shebang)" >&2; exit 1; }
@@ -43,6 +46,7 @@ cat > "$TMPDIR/package.json" <<EOF
   "private": true,
   "dependencies": {
     "@sanity-labs/slides": "file:./$tgz_basename",
+    "react": "^19.0.0",
     "zod": "^3.23.0"
   }
 }
@@ -68,6 +72,7 @@ echo "  ok: skill prints the bundled SKILL.md"
 # template's dist/index.js would look like.
 mkdir -p "$TMPDIR/test-template"
 cat > "$TMPDIR/test-template/index.mjs" <<'JS'
+import { createElement } from 'react';
 import { Box, CANVAS_16_9, Slide, Text, defineTemplate, defineTemplateComponent } from '@sanity-labs/slides';
 import { z } from 'zod';
 
@@ -78,31 +83,39 @@ const CoverSchema = z
   })
   .strict();
 
+// Slide / Box / Text are marker components — calling them as functions returns
+// null. They must be passed as React-element types via createElement so the
+// reconciler sees them in the resulting tree.
+const h = createElement;
 const Cover = ({ title, subtitle }) =>
-  Slide({
-    children: [
-      Box({
-        rect: { x: 0, y: 0, w: 960, h: 540 },
-        fill: { kind: 'solid', color: '#0b0b0b' },
-      }),
-      Box({
-        rect: { x: 40, y: 60, w: 880, h: 100 },
-        children: Text({
-          textStyle: { fontFamily: 'display', fontSize: 48, foregroundColor: '#ffffff' },
-          children: title,
-        }),
-      }),
-      subtitle
-        ? Box({
-            rect: { x: 40, y: 180, w: 880, h: 40 },
-            children: Text({
-              textStyle: { fontFamily: 'body', fontSize: 20, foregroundColor: '#cccccc' },
-              children: subtitle,
-            }),
-          })
-        : null,
-    ],
-  });
+  h(
+    Slide,
+    null,
+    h(Box, {
+      rect: { x: 0, y: 0, w: 960, h: 540 },
+      fill: { kind: 'solid', color: '#0b0b0b' },
+    }),
+    h(
+      Box,
+      { rect: { x: 40, y: 60, w: 880, h: 100 } },
+      h(
+        Text,
+        { textStyle: { fontFamily: 'display', fontSize: 48, foregroundColor: '#ffffff' } },
+        title,
+      ),
+    ),
+    subtitle
+      ? h(
+          Box,
+          { rect: { x: 40, y: 180, w: 880, h: 40 } },
+          h(
+            Text,
+            { textStyle: { fontFamily: 'body', fontSize: 20, foregroundColor: '#cccccc' } },
+            subtitle,
+          ),
+        )
+      : null,
+  );
 
 export const template = defineTemplate({
   name: 'verify-template',
@@ -131,6 +144,9 @@ pptx_path="$gen_out"
 test -f "$pptx_path" || { echo "FAIL: generate did not write a .pptx (got: $pptx_path)" >&2; exit 1; }
 magic="$(head -c 2 "$pptx_path" | xxd -p)"
 [[ "$magic" == "504b" ]] || { echo "FAIL: generate output is not a ZIP/.pptx (magic: $magic)" >&2; exit 1; }
+# Empty-deck-shell guard: confirm the .pptx contains at least one actual slide.
+# Local file headers in a ZIP carry the filename inline so a raw grep works.
+LC_ALL=C grep -q 'ppt/slides/slide1.xml' "$pptx_path" || { echo "FAIL: generate output has no ppt/slides/slide1.xml — the deck is just a shell" >&2; exit 1; }
 echo "  ok: generate wrote a real .pptx at $pptx_path"
 
 # Sanity-check scaffold separately (just confirms it stamps the template-base
@@ -140,5 +156,60 @@ scaffold_dir="$TMPDIR/scaffolded"
 test -f "$scaffold_dir/package.json" || { echo "FAIL: scaffold didn't stamp files" >&2; exit 1; }
 grep -q '"name": "verify-template"' "$scaffold_dir/package.json" || { echo "FAIL: scaffold didn't apply __NAME__ substitution" >&2; exit 1; }
 echo "  ok: scaffold stamps a working template"
+
+# create-deck + agent-authored component + render. Mirrors the full code-gen
+# loop an MCP-driven agent would walk through.
+deck_dir="$TMPDIR/deck"
+(cd "$TMPDIR" && timeout 30 "$bin_path" create-deck "$deck_dir" >/dev/null) || { echo "FAIL: create-deck failed" >&2; exit 1; }
+test -f "$deck_dir/src/index.ts" || { echo "FAIL: create-deck didn't write src/index.ts" >&2; exit 1; }
+grep -q '// <generated-components>' "$deck_dir/src/index.ts" || { echo "FAIL: create-deck missing anchors" >&2; exit 1; }
+echo "  ok: create-deck scaffolds with anchors"
+
+# Hand-write a component the way slides_add_component would, splice the
+# anchors with a small Node script that imports the bundled writeAnchors,
+# then call slidesctl generate against the deck's src/index.ts to confirm
+# the loaded template carries the new component.
+cat > "$deck_dir/src/components/Hero.tsx" <<'TSX'
+/** @jsxRuntime automatic @jsxImportSource react */
+import type { ReactElement } from 'react';
+import { Slide, Box, Text } from '@sanity-labs/slides';
+import { z } from 'zod';
+
+export const HeroSchema = z.object({ title: z.string().min(1) }).strict();
+
+export const Hero = ({ title }: z.infer<typeof HeroSchema>): ReactElement => (
+  <Slide>
+    <Box rect={{ x: 0, y: 0, w: 960, h: 540 }} fill={{ kind: 'solid', color: '#0b0b0b' }} />
+    <Box rect={{ x: 60, y: 220, w: 840, h: 100 }}>
+      <Text textStyle={{ fontFamily: 'display', fontSize: 56, foregroundColor: '#ffffff' }}>
+        {title}
+      </Text>
+    </Box>
+  </Slide>
+);
+TSX
+
+# Splice the deck's index.ts the same way slides_add_component would. We do
+# the find/replace directly in bash instead of going through the library API
+# so this script keeps testing only the published bin surface.
+python3 - "$deck_dir/src/index.ts" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('// <generated-imports>\n// </generated-imports>',
+              "// <generated-imports>\nimport { Hero, HeroSchema } from './components/Hero.js';\n// </generated-imports>")
+s = s.replace('// <generated-components>\n    // </generated-components>',
+              "// <generated-components>\n    Hero: defineTemplateComponent({\n      component: Hero,\n      schema: HeroSchema,\n      description: 'Hero',\n    }),\n    // </generated-components>")
+open(p, 'w').write(s)
+PY
+grep -q 'Hero: defineTemplateComponent' "$deck_dir/src/index.ts" || { echo "FAIL: anchor splice didn't register Hero" >&2; exit 1; }
+
+deck_payload='{"title":"deck verify","slides":[{"component":"Hero","props":{"title":"Hello from a deck"}}]}'
+deck_pptx="$(cd "$TMPDIR" && echo "$deck_payload" | timeout 30 "$bin_path" generate --template "$deck_dir/src/index.ts" --output "$TMPDIR" 2>&1)" || { echo "FAIL: generate against deck failed:" >&2; echo "$deck_pptx" >&2; exit 1; }
+test -f "$deck_pptx" || { echo "FAIL: deck generate didn't write a .pptx (got: $deck_pptx)" >&2; exit 1; }
+magic="$(head -c 2 "$deck_pptx" | xxd -p)"
+[[ "$magic" == "504b" ]] || { echo "FAIL: deck output is not a ZIP/.pptx (magic: $magic)" >&2; exit 1; }
+LC_ALL=C grep -q 'ppt/slides/slide1.xml' "$deck_pptx" || { echo "FAIL: deck output has no ppt/slides/slide1.xml — the deck is just a shell" >&2; exit 1; }
+echo "  ok: deck + agent-authored Hero rendered to $deck_pptx"
 
 echo "✓ @sanity-labs/slides bin runnable end-to-end"

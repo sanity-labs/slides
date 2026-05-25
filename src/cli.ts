@@ -22,6 +22,11 @@
  *               Scaffold a new template into <dir>. Replaces the old
  *               `npm create react-pptx-template` flow.
  *
+ *   create-deck <dir> [--name <slug>]
+ *               Scaffold an agent-writable deck project. Decks inherit
+ *               the @sanity-labs/slides primitives but ship with no slide
+ *               components — the agent writes them via the MCP tools.
+ *
  *   skill     [--path]
  *               Print the bundled `SKILL.md` to stdout (or its absolute
  *               path with `--path`). Paste into a Claude project to teach
@@ -42,16 +47,18 @@ import type { SlidesRuntime, Template } from './core/index.js';
 import { PptxSlidesRuntime } from './core/index.js';
 import { renderSlides } from './mcp/render.js';
 import { createSlideServer } from './mcp/server.js';
+import { createDeck } from './code-gen/index.js';
 import { defaultName, scaffoldTemplate, validateName } from './scaffold/index.js';
 
 const USAGE = `Usage: slidesctl <command> [options]
 
 Commands:
-  serve     Start an MCP server over stdio.
-  generate  Read { title, slides } JSON from stdin, write a .pptx file.
-  list      Print the slide types a template exposes.
-  scaffold  Scaffold a new template into <dir>.
-  skill     Print the bundled SKILL.md.
+  serve         Start an MCP server over stdio.
+  generate      Read { title, slides } JSON from stdin, write a .pptx file.
+  list          Print the slide types a template exposes.
+  scaffold      Scaffold a new brand template into <dir>.
+  create-deck   Scaffold an agent-writable deck project into <dir>.
+  skill         Print the bundled SKILL.md.
 
 Options (serve / generate / list):
   --template, -t <path>   Template to load. Accepts a package name, a file
@@ -60,8 +67,8 @@ Options (serve / generate / list):
                           (serve/generate only; defaults to cwd).
   --name,         <id>    MCP server name override (serve only).
 
-Options (scaffold):
-  --name      <slug>      Template name (default: inferred from <dir>).
+Options (scaffold / create-deck):
+  --name      <slug>      Project name (default: inferred from <dir>).
 
 Options (skill):
   --path                  Print SKILL.md's absolute path only.
@@ -170,6 +177,7 @@ const loadTemplate = async (spec: string): Promise<Template> => {
     importTarget = resolveBareSpecifier(spec, cwd);
   }
 
+  if (/\.(ts|tsx|mts|cts)(\?|$)/.test(importTarget)) await ensureTsxLoader();
   let mod: unknown;
   try {
     mod = await import(importTarget);
@@ -183,6 +191,27 @@ const loadTemplate = async (spec: string): Promise<Template> => {
     );
   }
   return template;
+};
+
+let tsxRegistered = false;
+
+/**
+ * Register tsx's ESM loader pointed at the bundled `runtime-tsconfig.json`,
+ * so any .ts/.tsx template transpiles with the automatic JSX runtime
+ * (jsx=react-jsx, jsxImportSource=react) regardless of where slidesctl was
+ * spawned from. Without an explicit tsconfig, tsx walks up from cwd and
+ * may find nothing — then esbuild falls back to classic JSX and any
+ * brand template using JSX crashes at render time with "React is not defined".
+ */
+const ensureTsxLoader = async (): Promise<void> => {
+  if (tsxRegistered) return;
+  const here = dirname(fileURLToPath(import.meta.url));
+  // From either src/cli.ts (dev) or dist/cli.js (published), one level up
+  // is the package root.
+  const tsconfig = resolvePath(here, '..', 'runtime-tsconfig.json');
+  const { register } = await import('tsx/esm/api');
+  register({ tsconfig });
+  tsxRegistered = true;
 };
 
 const isAbsoluteOrRelative = (spec: string): boolean =>
@@ -323,6 +352,22 @@ const runSkill = (args: ParsedArgs): void => {
   process.stdout.write(readFileSync(skillPath, 'utf8'));
 };
 
+const runCreateDeck = async (args: ParsedArgs): Promise<void> => {
+  const [target] = args.positional;
+  if (!target) {
+    throw new CliError(
+      'create-deck requires a target directory: `slidesctl create-deck ./my-deck`.',
+    );
+  }
+  const result = await createDeck({ dir: target, ...(args.name ? { name: args.name } : {}) });
+  process.stdout.write(`Scaffolded deck at ${result.deckPath}\n`);
+  process.stdout.write(
+    `\nNext steps:\n` +
+      `  Pipe slide specs to slidesctl generate --template ${result.deckPath}/src/index.ts\n` +
+      `  Or wire the deck into Claude via slidesctl serve and call slides_add_component.\n`,
+  );
+};
+
 const runScaffold = (args: ParsedArgs): void => {
   const [target] = args.positional;
   if (!target) {
@@ -391,6 +436,9 @@ export const main = async (argv: readonly string[]): Promise<void> => {
         return;
       case 'scaffold':
         runScaffold(args);
+        return;
+      case 'create-deck':
+        await runCreateDeck(args);
         return;
       case 'skill':
         runSkill(args);

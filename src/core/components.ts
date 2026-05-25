@@ -164,7 +164,20 @@ export interface ImageProps {
   altText?: string;
 }
 
-/** A unique brand for each primitive's React component. */
+/**
+ * A unique brand for each primitive's React component.
+ *
+ * The reconciler identifies primitives by reading the `__rgsKind` brand,
+ * never by reference equality on the function itself. That distinction
+ * matters because the package's source export (`./src/index.ts`) and its
+ * compiled export (`./dist/index.js`) ship two different `Slide`/`Box`/
+ * etc. function instances. When the MCP server runs from `dist/` but an
+ * agent-authored deck loads `@sanity-labs/slides` through `tsx` (which
+ * picks up the `src/` source via `exports['.']`), the two surfaces end
+ * up holding non-identical primitive references. A pure `===` check
+ * silently fails on every component the agent writes — you get a 0-op
+ * reconciler walk and an empty `.pptx`. The brand check survives.
+ */
 type Marker<TProps> = ((props: TProps) => null) & { readonly __rgsKind: string };
 
 const makeMarker = <TProps>(kind: string): Marker<TProps> => {
@@ -189,8 +202,29 @@ export const Image = makeMarker<ImageProps>('Image');
  */
 export const PRIMITIVES = { Slide, Box, Text, Color, Image } as const;
 
-const PRIMITIVE_SET = new Set<unknown>(Object.values(PRIMITIVES));
+export type PrimitiveKind = (typeof PRIMITIVES)[keyof typeof PRIMITIVES]['__rgsKind'];
+
+const PRIMITIVE_KINDS = new Set<string>(Object.values(PRIMITIVES).map((p) => p.__rgsKind));
+
+/**
+ * Read the brand off a React-element type. Returns `undefined` for
+ * anything that isn't one of our primitives — host elements, fragments,
+ * user-defined function components, etc.
+ *
+ * Use this everywhere instead of `type === Slide` etc., because identity
+ * is unreliable across the `src/`-via-tsx vs `dist/`-via-Node boundary.
+ * See the comment above {@link Marker} for the full story.
+ */
+export const markerKind = (type: unknown): string | undefined => {
+  if (typeof type !== 'function') return undefined;
+  const k = (type as { __rgsKind?: unknown }).__rgsKind;
+  return typeof k === 'string' ? k : undefined;
+};
 
 /** Type guard: is this React element type one of our primitives? */
-export const isPrimitive = (type: unknown): type is (typeof PRIMITIVES)[keyof typeof PRIMITIVES] =>
-  PRIMITIVE_SET.has(type);
+export const isPrimitive = (
+  type: unknown,
+): type is (typeof PRIMITIVES)[keyof typeof PRIMITIVES] => {
+  const k = markerKind(type);
+  return k !== undefined && PRIMITIVE_KINDS.has(k);
+};

@@ -1,8 +1,8 @@
 # **NAME**
 
-A react-pptx template. The brand lives in JSX; an LLM (Claude, anything that
-speaks MCP) drives it through the generic `react-pptx-mcp` server without
-ever touching fonts, colors, or layout.
+A `@sanity-labs/slides` template. The brand lives in JSX; an LLM (Claude,
+anything that speaks MCP) drives it through the generic `slidesctl` MCP
+server without ever touching fonts, colors, or layout.
 
 ## Develop
 
@@ -42,8 +42,8 @@ echo '{
 # /Users/you/Desktop/Q2-Review.pptx
 ```
 
-`pnpm generate` is a thin wrapper around `react-pptx-mcp generate --template
-./dist/index.js`.
+`pnpm generate` is a thin wrapper around
+`slidesctl generate --template ./dist/index.js`.
 
 ## Plug this template into Claude Desktop
 
@@ -60,7 +60,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`
       "command": "npx",
       "args": [
         "-y",
-        "react-pptx-mcp",
+        "@sanity-labs/slides",
         "serve",
         "--template",
         "/absolute/path/to/__NAME__/dist/index.js",
@@ -92,7 +92,7 @@ the changes on its next request.
 Drop the bundled skill into your Claude project. Print it with:
 
 ```bash
-npx react-pptx-mcp skill
+npx @sanity-labs/slides skill
 ```
 
 …and paste into your Claude project's knowledge sources.
@@ -100,7 +100,7 @@ npx react-pptx-mcp skill
 ## API in 30 seconds
 
 ```ts
-import { defineTemplate, defineTemplateComponent, CANVAS_16_9 } from 'react-pptx';
+import { defineTemplate, defineTemplateComponent, CANVAS_16_9 } from '@sanity-labs/slides';
 import { Cover, CoverSchema } from './components/Cover.js';
 import { preview } from './preview.js';
 
@@ -130,5 +130,5 @@ Add a new component:
    description (LLMs read it).
 3. Add a sample call in `src/preview.tsx` so the viewer shows it.
 
-Run `pnpm build` and the new component appears as `slides_add_my_slide` the
-next time Claude talks to your MCP server.
+Run `pnpm build` and the new component appears as `slides_add_my_slide`
+the next time Claude talks to your MCP server.

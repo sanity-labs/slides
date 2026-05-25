@@ -15,6 +15,7 @@
     "**/__snapshots__/**",
     "**/__tests__/**",
     "src/scaffold/template-base/**",
+    "src/scaffold/deck-base/**",
     "dist",
     "node_modules"
   ]

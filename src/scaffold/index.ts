@@ -1,11 +1,17 @@
 /**
- * Programmatic scaffolder. The `slidesctl scaffold <dir>` subcommand wraps
- * this; the same API is exposed at `@sanity-labs/slides/scaffold` so it can
- * be driven by other tooling.
+ * Programmatic scaffolders. The `slidesctl scaffold <dir>` and
+ * `slidesctl create-deck <dir>` subcommands wrap these; the same API is
+ * exposed at `@sanity-labs/slides/scaffold` so it can be driven by other
+ * tooling.
  *
- * The scaffold stamps every file under `template-base/` into the target
- * directory, applying `__NAME__` / `__IDENT__` substitutions and renaming
- * the `_gitignore` placeholder back to `.gitignore`.
+ * `scaffoldTemplate` stamps every file under `template-base/` into the
+ * target directory, applying `__NAME__` / `__IDENT__` substitutions.
+ *
+ * `scaffoldDeck` is the agent-facing variant — it stamps `deck-base/`,
+ * which has marker anchors in `src/index.ts` that the code-gen MCP tools
+ * splice into. No `__IDENT__` substitution (deck uses a default export).
+ *
+ * Both rename the `_gitignore` placeholder back to `.gitignore`.
  */
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
@@ -14,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_BASE = resolvePath(HERE, 'template-base');
+const DECK_BASE = resolvePath(HERE, 'deck-base');
 
 export type ScaffoldOptions = {
   /** Target directory; created if missing. Must be empty if it exists. */
@@ -32,17 +39,19 @@ export type ScaffoldResult = {
  *
  * Throws if `target` exists and is non-empty.
  */
-export const scaffoldTemplate = (options: ScaffoldOptions): ScaffoldResult => {
-  const targetPath = resolvePath(process.cwd(), options.target);
-  if (existsSync(targetPath) && readdirSync(targetPath).length > 0) {
-    throw new Error(`Target directory "${targetPath}" already exists and is not empty.`);
-  }
-  copyTemplate(TEMPLATE_BASE, targetPath, {
+export const scaffoldTemplate = (options: ScaffoldOptions): ScaffoldResult =>
+  stamp(TEMPLATE_BASE, options.target, {
     __NAME__: options.name,
     __IDENT__: toIdentifier(options.name),
   });
-  return { targetPath, fileCount: countFiles(targetPath) };
-};
+
+/**
+ * Stamp the deck-base into `target`, applying the substitutions.
+ *
+ * Throws if `target` exists and is non-empty.
+ */
+export const scaffoldDeck = (options: ScaffoldOptions): ScaffoldResult =>
+  stamp(DECK_BASE, options.target, { __NAME__: options.name });
 
 /**
  * Convert a kebab-case template name into a camelCase JS identifier. Used
@@ -70,13 +79,26 @@ export const defaultName = (target: string): string => {
   return last.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
 };
 
-const copyTemplate = (src: string, dst: string, replacements: Record<string, string>): void => {
+const stamp = (
+  source: string,
+  target: string,
+  replacements: Record<string, string>,
+): ScaffoldResult => {
+  const targetPath = resolvePath(process.cwd(), target);
+  if (existsSync(targetPath) && readdirSync(targetPath).length > 0) {
+    throw new Error(`Target directory "${targetPath}" already exists and is not empty.`);
+  }
+  copyTree(source, targetPath, replacements);
+  return { targetPath, fileCount: countFiles(targetPath) };
+};
+
+const copyTree = (src: string, dst: string, replacements: Record<string, string>): void => {
   mkdirSync(dst, { recursive: true });
   for (const entry of readdirSync(src)) {
     const srcEntry = join(src, entry);
     const dstEntry = join(dst, denormaliseFilename(entry));
     if (statSync(srcEntry).isDirectory()) {
-      copyTemplate(srcEntry, dstEntry, replacements);
+      copyTree(srcEntry, dstEntry, replacements);
       continue;
     }
     writeFileSync(dstEntry, applyReplacements(readFileSync(srcEntry, 'utf8'), replacements));

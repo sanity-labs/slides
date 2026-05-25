@@ -195,7 +195,7 @@ describe('renderToOps — error paths', () => {
       createElement(Box, { rect: { x: 0, y: 0, w: 10, h: 10 } }, createElement(Slide, null)),
     );
     expect(() => renderToOps({ tree, template: TestBrand, deckId: null, now: FIXED_NOW })).toThrow(
-      /<Slide> cannot appear inside a <Box>/,
+      /<Slide(?:\s|>) ?.*cannot appear inside a <Box>/,
     );
   });
 
@@ -501,7 +501,7 @@ describe('renderToOps — Image primitive', () => {
       ),
     );
     expect(() => renderToOps({ tree, template: TestBrand, deckId: null, now: FIXED_NOW })).toThrow(
-      /<Image> cannot appear inside a <Box>/,
+      /<Image(?:\s|>) ?.*cannot appear inside a <Box>/,
     );
   });
 });

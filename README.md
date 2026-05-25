@@ -227,6 +227,20 @@ pnpm install
 pnpm verify    # typecheck + lint + format + build + test + knip + verify-bins
 ```
 
+When you change anything agent-facing (a tool description, the SKILL, a
+reconciler error message), run the agentic harness to confirm a real
+Claude session can still drive the server end-to-end. It's dev-only,
+gated on an Anthropic API key, and never runs in CI — see
+[`test/harness/README.md`](./test/harness/README.md) for setup and the
+scenario authoring guide.
+
+```bash
+pnpm build                       # the harness spawns dist/cli.js
+cp .env.template .env            # set ANTHROPIC_API_KEY
+pnpm harness                     # all scenarios (~$4-7 per run)
+pnpm harness --only <name> -v    # focused, with the per-turn trace
+```
+
 Releases use [Changesets](https://github.com/changesets/changesets):
 
 ```bash

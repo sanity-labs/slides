@@ -19,6 +19,7 @@ const PKG = resolvePath(HERE, '..');
 const copies = [
   ['src/dev/styles.css', 'dist/dev/styles.css'],
   ['src/scaffold/template-base', 'dist/scaffold/template-base'],
+  ['src/scaffold/deck-base', 'dist/scaffold/deck-base'],
   ['src/dev/bin/slides-dev.mjs', 'dist/dev/bin/slides-dev.mjs'],
 ];
 
