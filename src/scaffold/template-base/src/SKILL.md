@@ -1,4 +1,4 @@
-# __NAME__ Design Guidelines
+# **NAME** Design Guidelines
 
 <!-- Template authors: replace this with your brand's design rules. -->
 <!-- This file is loaded as the template's `skill` and surfaced through -->
