@@ -402,7 +402,7 @@ describe('layoutSlide — className text styling', () => {
       (op): op is Extract<SlideOp, { type: 'updateTextStyle' }> => op.type === 'updateTextStyle',
     );
     expect(style?.style.foregroundColor).toBe('#0b0b0b');
-    expect(style?.style.fontSize).toBe(20);
+    expect(style?.style.fontSize).toBe(32);
   });
 
   test('Text className overrides Box className on collision', () => {
@@ -427,8 +427,8 @@ describe('layoutSlide — className text styling', () => {
       )
       .map((op) => op.style.fontSize)
       .filter((s): s is number => s !== undefined);
-    // Box-level applies first (20pt) then the run-level overrides (40pt).
-    expect(sizes).toContain(40);
+    // Box-level applies first (32pt for text-2xl) then the run-level overrides (56pt for text-5xl).
+    expect(sizes).toContain(56);
   });
 
   test('unknown class in className throws a ReconcilerError with the offending name', () => {

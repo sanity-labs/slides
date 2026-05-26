@@ -24,7 +24,7 @@ import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** Packages we need available in every scaffolded deck. */
-const DECK_DEPS = ['@sanity-labs/slides', 'zod', 'react', '@types/react'] as const;
+const BASE_DECK_DEPS = ['@sanity-labs/slides', 'zod', 'react', '@types/react'] as const;
 
 /**
  * The on-disk root of the running `@sanity-labs/slides` install. Two levels
@@ -39,28 +39,46 @@ const SLIDES_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..', '
  *
  * Idempotent: existing correct symlinks are left alone; stale ones are
  * replaced. Returns the list of packages that were (re)linked.
+ *
+ * `extraDeps` lets callers link template-specific extras (e.g. a brand's
+ * chrome-helpers package surfaced via `additionalImportAllowlist`).
+ * Without this, the agent can `import { BrandSlide } from
+ * '@sanity-labs/slides-template'` and pass the import allowlist check at
+ * the source level — but typecheck and runtime resolution still fail
+ * because the package isn't in the deck's node_modules.
  */
-export const linkDeckDeps = (deckPath: string): string[] => {
+export const linkDeckDeps = (deckPath: string, extraDeps: readonly string[] = []): string[] => {
   const nodeModules = join(deckPath, 'node_modules');
   mkdirSync(nodeModules, { recursive: true });
   const linked: string[] = [];
-  for (const pkg of DECK_DEPS) {
-    const target = resolvePackageDir(pkg);
-    const linkPath = join(nodeModules, pkg);
-    if (pkg.startsWith('@')) mkdirSync(dirname(linkPath), { recursive: true });
-    if (existsSync(linkPath)) {
-      try {
-        if (readlinkSync(linkPath) === target) continue;
-      } catch {
-        // Not a symlink (real dir); leave it alone — the user installed for real.
-        continue;
-      }
-      unlinkSync(linkPath);
-    }
-    symlinkSync(target, linkPath, 'dir');
-    linked.push(pkg);
+  // Base deps are required — throw if missing. Extras are optional — soft-skip
+  // if the template author listed a package that isn't installed.
+  for (const pkg of BASE_DECK_DEPS) {
+    const target = resolveBaseDep(pkg);
+    linkPackage(nodeModules, pkg, target, linked);
+  }
+  for (const pkg of extraDeps) {
+    const target = resolveOptionalDep(pkg);
+    if (target === null) continue;
+    linkPackage(nodeModules, pkg, target, linked);
   }
   return linked;
+};
+
+const linkPackage = (nodeModules: string, pkg: string, target: string, linked: string[]): void => {
+  const linkPath = join(nodeModules, pkg);
+  if (pkg.startsWith('@')) mkdirSync(dirname(linkPath), { recursive: true });
+  if (existsSync(linkPath)) {
+    try {
+      if (readlinkSync(linkPath) === target) return;
+    } catch {
+      // Not a symlink (real dir); leave it alone — the user installed for real.
+      return;
+    }
+    unlinkSync(linkPath);
+  }
+  symlinkSync(target, linkPath, 'dir');
+  linked.push(pkg);
 };
 
 /**
@@ -69,7 +87,7 @@ export const linkDeckDeps = (deckPath: string): string[] => {
  */
 const REQUIRE = createRequire(import.meta.url);
 
-const resolvePackageDir = (pkg: string): string => {
+const resolveBaseDep = (pkg: string): string => {
   if (pkg === '@sanity-labs/slides') return SLIDES_ROOT;
   try {
     return dirname(REQUIRE.resolve(`${pkg}/package.json`));
@@ -80,5 +98,13 @@ const resolvePackageDir = (pkg: string): string => {
         `This usually means @sanity-labs/slides was installed without its peer deps. ` +
         `Reinstall the server with all peers present.`,
     );
+  }
+};
+
+const resolveOptionalDep = (pkg: string): string | null => {
+  try {
+    return dirname(REQUIRE.resolve(`${pkg}/package.json`));
+  } catch {
+    return null;
   }
 };

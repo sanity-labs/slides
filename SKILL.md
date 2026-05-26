@@ -39,7 +39,7 @@ Most decks mix the two: a few prebuilt slide types for the parts that fit, custo
 - Tailwind classes outside the allowlist are rejected with `UnknownClassError`. Stock Tailwind (`bg-pink-500`, `text-[20px]`, `hover:…`, responsive variants) is not allowed. Call `slides_list({ detail: "detailed" })` to see the template's actual tokens.
 - Component names must come from `slides_list`. To add a new slide type use `slides_add_component`; PascalCase only.
 - Custom components may only import `@sanity-labs/slides`, `react`, and `zod` — plus any **extras the active template opts into** via `additionalImportAllowlist`. Read `slides_list({ detail: "detailed" })`; its `additionalImports` field lists the template-specific extras (typically a brand-chrome helper package like `@sanity-labs/slides-template`). Other imports throw `add_component_failed` before any file is written.
-- When a template lists an extras package, **prefer its chrome helpers over re-rolling the layout from primitives.** A brand template's `<BrandSlide>` / `<TopLabel>` / footer chrome exists so custom slides match the curated ones — same padding, same logo position, same footer text. A custom slide that uses raw primitives on a template that exposes chrome helpers will be visibly inconsistent with the deck's other slides.
+- **Slide chrome is automatic.** Every `<Slide>` is automatically wrapped with the template's layout component — background, logo, footer, safe-zone padding all get applied without you doing anything. Your custom components only declare their content; the framework guarantees visual consistency with the template's curated slides. Pass `layoutProps={{ ... }}` on `<Slide>` for per-instance variation (e.g. a brand-color background, a different footer text); use `noLayout` to opt out entirely for one-off full-bleed slides.
 - The `<generated-imports>` / `<generated-components>` anchors in a deck's `src/index.ts` are owned by the code-gen tools — hand edits get clobbered.
 
 ### Working principles
@@ -62,18 +62,20 @@ Use this skill when the user asks for a slide deck and any of the following are 
 
 Do **not** invent slide content with `Box`/`Text` primitives directly in arbitrary JSON. Either pick a prebuilt slide type (tier 1) or write a real React component (tier 2). Primitives are not a runtime-callable surface — they're a library you build with.
 
-## Tool surface (8 tools total)
+## Tool surface (10 tools total)
 
-| Tool                    | Tier   | Use it for                                                                                                        |
-| ----------------------- | ------ | ----------------------------------------------------------------------------------------------------------------- |
-| `slides_list`           | both   | Discover what slide types are available. Pass `detail: "detailed"` to also get JSON Schemas.                      |
-| `slides_guidelines`     | both   | Read the template's design guidelines — brand rules, do's/don'ts, visual constraints. Call once at session start. |
-| `slides_validate`       | tier 1 | Validate one `{ component, props }` pair against the active schema. Optional but useful.                          |
-| `slides_create`         | both   | Render an array of `{ component, props }` to `.pptx`. Returns the absolute file path.                             |
-| `slides_create_deck`    | tier 2 | Scaffold a writable deck project. After this, the server's active template is the deck.                           |
-| `slides_add_component`  | tier 2 | Write a new TSX slide into the deck. Imports allowlist enforced; typechecked.                                     |
-| `slides_edit_component` | tier 2 | Overwrite an existing component (e.g. after a typecheck error).                                                   |
-| `slides_build`          | tier 2 | Re-run tsc without writing files.                                                                                 |
+| Tool                     | Tier   | Use it for                                                                                                        |
+| ------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------- |
+| `slides_list`            | both   | Discover what slide types are available. Pass `detail: "detailed"` to also get JSON Schemas.                      |
+| `slides_guidelines`      | both   | Read the template's design guidelines — brand rules, do's/don'ts, visual constraints. Call once at session start. |
+| `slides_validate`        | tier 1 | Validate one `{ component, props }` pair against the active schema. Optional but useful.                          |
+| `slides_create`          | both   | Render an array of `{ component, props }` to `.pptx`. Returns the absolute file path.                             |
+| `slides_preview`         | both   | Render slides to PNG images inline. Pass `slideIndices` to preview only specific slides.                          |
+| `slides_create_deck`     | tier 2 | Scaffold a writable deck project. After this, the server's active template is the deck.                           |
+| `slides_add_component`   | tier 2 | Write a new TSX slide into the deck. Imports allowlist enforced; typechecked.                                     |
+| `slides_edit_component`  | tier 2 | Overwrite an existing component's full source (use for major restructures).                                       |
+| `slides_patch_component` | tier 2 | Apply search/replace patches to a component (use for className fixes, prop tweaks — saves tokens).                |
+| `slides_build`           | tier 2 | Re-run tsc without writing files.                                                                                 |
 
 ## Tier 1 — JSON props
 
@@ -83,6 +85,7 @@ Do **not** invent slide content with `Box`/`Text` primitives directly in arbitra
 4. **Plan.** Map the user's request to a sequence of slide types. Common shape: `Cover` → 1–3 body slides → `Closing`.
 5. **(Optional) Validate.** For complex slides (grids, lists, charts), call `slides_validate({ component, props })` to catch schema errors with field-level paths before paying the cost of a full `slides_create`. Skip if you've already cross-checked against the JSON Schema yourself.
 6. **Create.** Call `slides_create({ title, slides: [...] })`. Surface the returned `filePath` verbatim.
+7. **(Recommended) Preview.** Call `slides_preview({ slides: [...] })` with the same slide specs to get PNG images of every slide. Review them for layout issues, text overflow, color contrast problems, and brand compliance. Fix and re-create if needed.
 
 ## Tier 2 — code-gen
 
@@ -90,7 +93,7 @@ Use this when no prebuilt slide type fits, or when the user explicitly wants som
 
 1. **Scaffold.** `slides_create_deck({ dir: "<path>" })`. The directory must be empty or non-existent. The returned `deckPath` is what every other code-gen tool takes. After this call the active template **inherits the brand template's components** — every prebuilt slide type the server started with is still usable in `slides_create`. The deck itself starts with zero custom components; whatever you add via `slides_add_component` layers on top of (and can shadow) the brand set.
 2. **Discover what's there.** Call `slides_list` again. Entries tagged `[deck]` came from your own code-gen calls and can be edited with `slides_edit_component`; everything else is brand-template (read-only). Pass `detail: "detailed"` to see the schemas, plus the brand's available **color tokens** and **spacing tokens** — the building blocks for the className-based layout below.
-3. **Write a component.** `slides_add_component({ deckPath, name, source })`. `name` is PascalCase (`RevenueChart`, `TeamGrid`). `source` is full TSX. Layouts use **flex + brand-locked Tailwind classes**, not hand-computed rects. Canonical shape:
+3. **Write a component.** `slides_add_component({ deckPath, name, source })`. `name` is PascalCase (`RevenueChart`, `TeamGrid`). `source` is full TSX. Layouts use **flex + brand-locked Tailwind classes**, not hand-computed rects. The template's layout wraps your `<Slide>` automatically — you just declare the content. Canonical shape:
 
    ```tsx
    import type { ReactElement } from 'react';
@@ -108,16 +111,14 @@ Use this when no prebuilt slide type fits, or when the user explicitly wants som
      .strict();
 
    export const Traction = ({ title, metrics }: z.infer<typeof TractionSchema>): ReactElement => (
-     <Slide className="flex flex-col gap-8 p-12 bg-fg-base">
-       <Box className="flex-none text-display text-5xl text-bg-surface">{title}</Box>
+     // No background, logo, or footer needed — the template's layout adds those.
+     <Slide className="flex flex-col gap-8">
+       <Box className="flex-none text-role-title">{title}</Box>
        <Box className="flex flex-row flex-1 gap-6">
          {metrics.map((m, i) => (
-           <Box
-             key={i}
-             className="flex-1 flex flex-col gap-2 p-6 bg-surface-elevated justify-center"
-           >
-             <Box className="text-display text-4xl text-bg-surface">{m.value}</Box>
-             <Box className="text-body text-sm text-bg-surface">{m.label}</Box>
+           <Box key={i} className="flex-1 flex flex-col gap-2 justify-center">
+             <Box className="text-role-metric-value">{m.value}</Box>
+             <Box className="text-role-metric-label">{m.label}</Box>
            </Box>
          ))}
        </Box>
@@ -133,7 +134,22 @@ Use this when no prebuilt slide type fits, or when the user explicitly wants som
 
 4. **Handle typecheck errors.** `slides_add_component` always ends with a typecheck. If it fails, the response carries a `summary` with up to 20 file/line/code errors. Read it, call `slides_edit_component({ deckPath, name, source })` with the corrected source, repeat. If the same error survives a couple of fixes, surface it to the user rather than spinning.
 
-5. **Render.** Once `slides_list` shows the components you need, call `slides_create({ title, slides: [...] })`. Mix prebuilt types and your custom ones freely.
+5. **Iterate with patches.** After the initial write, prefer `slides_patch_component` for targeted fixes — a className swap, a prop rename, a size tweak. It takes search/replace pairs instead of the full source, saving hundreds of tokens per edit. Use `slides_edit_component` only when the component needs a full rewrite.
+
+   ```json
+   {
+     "deckPath": "...",
+     "name": "MetricRow",
+     "patches": [
+       { "old": "bg-surface-elevated", "new": "bg-black" },
+       { "old": "text-xl", "new": "text-2xl" }
+     ]
+   }
+   ```
+
+6. **Preview custom components.** Call `slides_preview` with 1–2 slides using the new component. Pass `slideIndices: [0]` to preview just the first slide. Fix issues with `slides_patch_component` and re-preview until the layout looks right.
+
+7. **Render.** Once `slides_list` shows the components you need, call `slides_create({ title, slides: [...] })`. Mix prebuilt types and your custom ones freely.
 
 The deck project at `deckPath` persists. The user owns it. They can inspect the React code you wrote, edit it, and rerun `slidesctl generate` themselves to regenerate the `.pptx`. Tell them where it lives.
 
@@ -160,14 +176,16 @@ The deck project at `deckPath` persists. The user owns it. They can inspect the 
 
 ### Typography
 
-| Class                                                           | What it does                                |
-| --------------------------------------------------------------- | ------------------------------------------- |
-| `text-xs` … `text-9xl`                                          | Font size, on a 13-step scale (8pt to 72pt) |
-| `text-display` / `text-body` / `text-mono`                      | Map to the template's three font slots      |
-| `font-bold` / `font-normal`                                     | Weight                                      |
-| `italic` / `not-italic` / `underline` / `no-underline`          | Style toggles                               |
-| `text-left` / `text-center` / `text-right`                      | Paragraph alignment                         |
-| `tracking-{tight,normal,wide}` / `leading-{tight,normal,loose}` | Accepted but currently no-op                |
+| Class                                                           | What it does                                                               |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `text-xs` … `text-9xl`                                          | Font size, presentation-scale (12pt at `text-xs` up to 96pt at `text-9xl`) |
+| `text-display` / `text-body` / `text-mono`                      | Map to the template's three font slots                                     |
+| `font-bold` / `font-normal`                                     | Weight                                                                     |
+| `italic` / `not-italic` / `underline` / `no-underline`          | Style toggles                                                              |
+| `text-left` / `text-center` / `text-right`                      | Paragraph alignment                                                        |
+| `tracking-{tight,normal,wide}` / `leading-{tight,normal,loose}` | Accepted but currently no-op                                               |
+
+**Sizes are calibrated for projection.** The framework's type scale assumes ~3–5x web viewing distance: `text-xs` is 12pt (footer floor), `text-base` is 20pt (light body), `text-2xl` is 32pt (small heading), `text-4xl` is 48pt (title), `text-9xl` is 96pt (hero). You don't need to think about whether a size is "big enough" — every class lands in a readable range. For text smaller than 12pt (rare — maybe a tiny copyright line), drop to `textStyle={{ fontSize: 8 }}` as an explicit escape hatch.
 
 ### Brand-token colors
 
@@ -206,18 +224,42 @@ Read the suggestion, pick the closest brand-token color or use one the template 
 
 These decks render to PowerPoint files that get **projected, screen-shared, or PDF-exported**. "Readable on my laptop" is the wrong target — the right target is **readable from the back of a 30-foot room**. Two rules follow.
 
-### Minimum font sizes
+### Font sizes by role
 
-| Role                | Minimum class | Notes                                                              |
-| ------------------- | ------------- | ------------------------------------------------------------------ |
-| Slide title         | `text-4xl`    | 32pt. `text-5xl` (40pt) or `text-6xl` (48pt) is better for covers. |
-| Headline / hero     | `text-5xl`+   | Where the slide has one big idea.                                  |
-| Body copy           | `text-xl`     | 16pt. `text-2xl` (20pt) is safer.                                  |
-| Metric "big number" | `text-4xl`+   | The number IS the slide's content; size it accordingly.            |
-| Metric label        | `text-base`+  | 12pt absolute floor. Smaller is unreadable when projected.         |
-| Eyebrow / kicker    | `text-sm`     | 10pt; use sparingly and only in ALL CAPS for emphasis.             |
+**Strongly prefer template typography roles over raw sizes.** When a template defines `template.typography` roles (`title`, `body`, `eyebrow`, etc.), use `text-role-<name>` classes. These resolve to the template's canonical size + weight + font family for that role — the same values its curated slides use. This is how you stay typographically consistent across a deck:
 
-**Never use `text-xs` (8pt) for content the user needs to read.** It exists in the allowlist for fine-print footnotes and slot tags, not for body copy.
+```tsx
+<Box className="text-role-title">Quarterly review</Box>
+<Box className="text-role-body">Revenue up 18% YoY.</Box>
+<Box className="text-role-eyebrow">Q3 2026</Box>
+```
+
+Check `slides_list({ detail: "detailed" })` (look at `template.typography`) to see which roles a template exposes. If a role isn't defined, fall back to the raw scale below.
+
+#### Raw scale (fallback when no role exists)
+
+| Role                | Recommended class | Notes                                                  |
+| ------------------- | ----------------- | ------------------------------------------------------ |
+| Cover title         | `text-7xl`+       | 72pt+. Owns the slide — one statement, nothing else.   |
+| Section divider     | `text-6xl`        | 64pt. One line, no body.                               |
+| Slide title         | `text-4xl`        | 48pt. Top of every content slide.                      |
+| Headline / hero     | `text-5xl`        | 56pt. Where one big idea earns the slide.              |
+| Body copy           | `text-base`       | 20pt comfortable. `text-lg` (24pt) for sparse layouts. |
+| Metric "big number" | `text-5xl`+       | The number IS the content; size it accordingly.        |
+| Metric label        | `text-sm`         | 16pt mono labels.                                      |
+| Eyebrow / kicker    | `text-xs`         | 12pt mono ALL CAPS for category labels and metadata.   |
+| Footer chrome       | `text-xs`         | 12pt for "SANITY INC · 2026"-style metadata.           |
+
+Every `text-*` class is presentation-readable by design — there is no "too small" trap. The smallest class (`text-xs`) is 12pt, calibrated for back-of-room legibility on metadata.
+
+#### Consistency rule (this is design 1:1)
+
+A well-designed deck uses **the same title size on every slide, the same body size on every slide, the same eyebrow size on every slide**. Variation breaks visual rhythm and signals "a model wrote this." Two principles:
+
+- **Pick a size per role, reuse it deck-wide.** If your first content slide uses `text-4xl` for the title, every other content slide's title is also `text-4xl`. Don't switch to `text-3xl` or `text-5xl` just because the new title is shorter or longer.
+- **`text-role-*` enforces this for you.** When the template defines roles, you can't drift — every slide's title resolves to the same pt value because they all go through the same role token.
+
+Review your finished deck with `slides_preview` and verify titles look the same size on slides 2, 5, 9, and 12. If they don't, fix it.
 
 ### Contrast
 
@@ -275,6 +317,43 @@ When the Tailwind dialect can't express what you need:
 
 Reach for these sparingly. The whole point of the className surface is that the agent doesn't drift on fonts / colors / sizes — escape hatches let you bypass that lock.
 
+## Visual review with `slides_preview`
+
+`slides_preview` renders your slide specs to PNG images and returns them inline — you see the actual slides as the audience would. Same input format as `slides_create` (minus the title).
+
+**When to use it:**
+
+- **After `slides_create`**, to verify the deck looks right before telling the user it's done. Call it with the same `slides` array you just rendered.
+- **After writing a custom component**, to check that your layout, spacing, and colors work before composing the full deck. Preview 1–2 slides with the new component.
+- **When iterating on a custom component**, to see the visual effect of your `slides_edit_component` changes without regenerating the full `.pptx`.
+
+**What to look for in the previews:**
+
+- **Text overflow** — text that runs past the box boundary or overlaps other elements.
+- **Color contrast** — light text on light backgrounds (invisible) or dark text on dark backgrounds.
+- **Layout balance** — columns that are lopsided, grids with uneven cell heights, too much or too little whitespace.
+- **Brand compliance** — wrong background colors, missing chrome (logo/footer), textures where they shouldn't be.
+- **Font size** — body text that looks too small for projection, or titles that are too large and wrap awkwardly.
+
+**What the preview doesn't show perfectly:**
+
+- SVG textures (dot-grids, dotted rules) render as gray placeholders — this is fine, they work correctly in the `.pptx`.
+- Font metrics are approximate (system Arial instead of Geist) — text may wrap differently in the actual PowerPoint.
+- The preview is 960×540px, not the full resolution of the exported slide.
+
+**Usage:**
+
+```
+slides_preview({ slides: [
+  { component: "Cover", props: { title: "Q2 Review", eyebrow: "QUARTERLY" } },
+  { component: "MetricRow", props: { ... } }
+] })
+```
+
+Returns image content blocks (one per slide) followed by a text prompt to review. If you spot issues, fix the component source or props and preview again.
+
+---
+
 ## Response shape from `slides_create`
 
 ```json
@@ -296,13 +375,16 @@ On error, the server returns a structured error with one of these codes:
 User: _"Make a Q4 review with a revenue bar chart, two metric grids, a quote from the CEO, and a thank-you."_
 
 1. `slides_list` — template ships `Cover`, `TitleAndGrid`, `Quote`, `Closing` but no chart slide.
-2. `slides_list({ detail: "detailed" })` — grab JSON Schemas + brand tokens (colors and spacing).
-3. `slides_create_deck({ dir: "~/slides/q4-review" })` — the deck inherits the four brand slide types.
-4. `slides_add_component({ deckPath, name: "RevenueChart", source })` — a flex-layout chart (column outer, row of card columns inner) using brand tokens.
-5. On typecheck failure, `slides_edit_component` with a fix. Repeat until clean.
-6. `slides_list` confirms `RevenueChart` is now in the active template.
-7. One `slides_create` call: `[Cover, RevenueChart, TitleAndGrid × 2, Quote, Closing]` with the user's content as props.
-8. Surface the `.pptx` path **and** the deck project path verbatim to the user.
+2. `slides_guidelines` — read the template's brand rules (if available).
+3. `slides_list({ detail: "detailed" })` — grab JSON Schemas + brand tokens (colors and spacing).
+4. `slides_create_deck({ dir: "~/slides/q4-review" })` — the deck inherits the four brand slide types.
+5. `slides_add_component({ deckPath, name: "RevenueChart", source })` — a flex-layout chart (column outer, row of card columns inner) using brand tokens.
+6. On typecheck failure, `slides_edit_component` with a fix. Repeat until clean.
+7. `slides_preview` with 1–2 slides using `RevenueChart` — check the layout looks right.
+8. `slides_list` confirms `RevenueChart` is now in the active template.
+9. One `slides_create` call: `[Cover, RevenueChart, TitleAndGrid × 2, Quote, Closing]` with the user's content as props.
+10. `slides_preview` with the full slide array — visually review every slide for overflow, contrast, and brand compliance.
+11. Surface the `.pptx` path **and** the deck project path verbatim to the user.
 
 ## Before declaring done
 
@@ -310,13 +392,14 @@ Assume there are problems. Your job is to find them before the user does. A `.pp
 
 Run this checklist before reporting back:
 
-1. **One file, not many.** `producedPptx.length === 1`. If there are multiple, you accidentally called `slides_create` more than once. Tell the user which path is the real one.
-2. **The path is absolute and surfaced verbatim.** Don't paraphrase, don't shorten, don't say "saved to your downloads folder" — give them the full path string.
-3. **Brand lock held.** No `'#'`-prefixed hex strings in any component source you wrote. If you see one, replace it with the matching brand token via `slides_edit_component`.
-4. **Contrast checked per surface.** For every `<Box className="… bg-<X>">` you wrote, the text inside uses a color that contrasts with `<X>`. Dark surface → light text; light surface → dark text. Re-read the [Contrast](#contrast) section if unsure.
-5. **Body text size is presentation-grade.** Nothing important uses `text-xs` or `text-sm`. Titles ≥ `text-4xl`. Body ≥ `text-xl`. Metric big-numbers ≥ `text-4xl`.
-6. **Slide count matches the brief.** If the user asked for five slides, `slides_create` was called with `slides.length === 5`.
-7. **Custom components are reusable.** If you wrote `Problem`, `Solution`, `Traction`, `Ask` for one deck, the next deck about a different startup could call them with different props. Hard-coded copy belongs in the `slides_create` props, not in the component source.
+1. **Visual review.** Call `slides_preview` with the same slides array you rendered. Look at every image. Check for text overflow, contrast issues, misaligned elements, and brand violations. If something looks wrong, fix the component and re-preview.
+2. **One file, not many.** If there are multiple `.pptx` files, you called `slides_create` more than once. Tell the user which path is the real one.
+3. **The path is absolute and surfaced verbatim.** Don't paraphrase, don't shorten, don't say "saved to your downloads folder" — give them the full path string.
+4. **Brand lock held.** No `'#'`-prefixed hex strings in any component source you wrote. If you see one, replace it with the matching brand token via `slides_edit_component`.
+5. **Contrast checked per surface.** For every `<Box className="… bg-<X>">` you wrote, the text inside uses a color that contrasts with `<X>`. Dark surface → light text; light surface → dark text. Re-read the [Contrast](#contrast) section if unsure.
+6. **Body text size is presentation-grade.** Nothing important uses `text-xs` or `text-sm`. Titles ≥ `text-4xl`. Body ≥ `text-xl`. Metric big-numbers ≥ `text-4xl`.
+7. **Slide count matches the brief.** If the user asked for five slides, `slides_create` was called with `slides.length === 5`.
+8. **Custom components are reusable.** If you wrote `Problem`, `Solution`, `Traction`, `Ask` for one deck, the next deck about a different startup could call them with different props. Hard-coded copy belongs in the `slides_create` props, not in the component source.
 
 ## AI tells to avoid
 

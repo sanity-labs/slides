@@ -85,17 +85,52 @@ describe('resolveClassName — layout primitives', () => {
 });
 
 describe('resolveClassName — typography', () => {
-  test('text-{xs,sm,…,9xl} maps to fontSize in pt', () => {
-    expect(resolveClassName('text-xs', TestTemplate).text.fontSize).toBe(8);
-    expect(resolveClassName('text-base', TestTemplate).text.fontSize).toBe(12);
-    expect(resolveClassName('text-5xl', TestTemplate).text.fontSize).toBe(40);
-    expect(resolveClassName('text-9xl', TestTemplate).text.fontSize).toBe(72);
+  test('text-{xs,sm,…,9xl} maps to presentation-scale fontSize in pt', () => {
+    // Scale is calibrated for projection viewing distance, not web.
+    // Minimum is 12pt (footer metadata floor); maximum is 96pt (hero cover).
+    expect(resolveClassName('text-xs', TestTemplate).text.fontSize).toBe(12);
+    expect(resolveClassName('text-sm', TestTemplate).text.fontSize).toBe(16);
+    expect(resolveClassName('text-base', TestTemplate).text.fontSize).toBe(20);
+    expect(resolveClassName('text-lg', TestTemplate).text.fontSize).toBe(24);
+    expect(resolveClassName('text-xl', TestTemplate).text.fontSize).toBe(28);
+    expect(resolveClassName('text-4xl', TestTemplate).text.fontSize).toBe(48);
+    expect(resolveClassName('text-9xl', TestTemplate).text.fontSize).toBe(96);
   });
 
   test('text-display / text-body / text-mono map to font roles', () => {
     expect(resolveClassName('text-display', TestTemplate).text.fontFamily).toBe('display');
     expect(resolveClassName('text-body', TestTemplate).text.fontFamily).toBe('body');
     expect(resolveClassName('text-mono', TestTemplate).text.fontFamily).toBe('mono');
+  });
+
+  test('text-role-<name> resolves against template.typography', () => {
+    const withRoles = {
+      ...TestTemplate,
+      typography: {
+        title: { fontFamily: 'display' as const, fontSize: 48, lineHeight: 1.1, fontWeight: 700 },
+        body: { fontFamily: 'body' as const, fontSize: 20, lineHeight: 1.4 },
+        eyebrow: { fontFamily: 'mono' as const, fontSize: 12, lineHeight: 1.2 },
+      },
+    };
+    expect(resolveClassName('text-role-title', withRoles).text).toMatchObject({
+      fontFamily: 'display',
+      fontSize: 48,
+      bold: true,
+    });
+    expect(resolveClassName('text-role-body', withRoles).text).toMatchObject({
+      fontFamily: 'body',
+      fontSize: 20,
+    });
+    expect(resolveClassName('text-role-eyebrow', withRoles).text).toMatchObject({
+      fontFamily: 'mono',
+      fontSize: 12,
+    });
+  });
+
+  test('text-role-<unknown> falls through to UnknownClassError', () => {
+    expect(() => resolveClassName('text-role-nonexistent', TestTemplate)).toThrow(
+      UnknownClassError,
+    );
   });
 
   test('font-bold + italic + underline set text-style booleans', () => {
@@ -219,7 +254,7 @@ describe('resolveClassName — combined', () => {
       paddingLeft: 24,
     });
     expect(out.fill).toEqual({ kind: 'solid', color: '#1a1a1a' });
-    expect(out.text).toMatchObject({ fontFamily: 'display', fontSize: 32 });
+    expect(out.text).toMatchObject({ fontFamily: 'display', fontSize: 48 });
   });
 
   test('empty className returns the empty style', () => {

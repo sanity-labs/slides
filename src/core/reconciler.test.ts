@@ -250,6 +250,99 @@ describe('renderToOps — manifest fields', () => {
 });
 
 // ---------------------------------------------------------------------------
+// template.layout (Next.js-style automatic chrome wrapper)
+// ---------------------------------------------------------------------------
+
+describe('renderToOps — template.layout', () => {
+  // A test layout that injects a footer Box around children, reading
+  // `tone` from layoutProps to vary the footer color.
+  const LayoutTemplate: Template = {
+    ...TestBrand,
+    layout: ({ children, layoutProps }) => {
+      const tone = (layoutProps?.['tone'] as string | undefined) ?? 'dark';
+      const color = tone === 'brand' ? '#ff5500' : '#0b0b0b';
+      return createElement(
+        Fragment,
+        null,
+        children,
+        createElement(Box, {
+          rect: { x: 800, y: 510, w: 130, h: 20 },
+          fill: { kind: 'solid', color: color as `#${string}` },
+          'data-test-id': 'layout-footer',
+        } as never),
+      );
+    },
+  };
+
+  test('wraps every slide with the layout component automatically', () => {
+    const tree = createElement(
+      Slide,
+      null,
+      createElement(Box, { rect: { x: 24, y: 24, w: 800, h: 400 } }, 'content'),
+    );
+    const result = renderToOps({
+      tree,
+      template: LayoutTemplate,
+      deckId: null,
+      now: FIXED_NOW,
+    });
+    // We should see TWO createShape ops: one for the content Box and one for
+    // the layout's footer Box. Without the layout wrapping, we'd see one.
+    const shapeCount = result.ops.filter((op) => op.type === 'createShape').length;
+    expect(shapeCount).toBe(2);
+  });
+
+  test('layoutProps from <Slide> are passed through to the layout', () => {
+    const tree = createElement(
+      Slide,
+      { layoutProps: { tone: 'brand' } },
+      createElement(Box, { rect: { x: 24, y: 24, w: 800, h: 400 } }, 'content'),
+    );
+    const result = renderToOps({
+      tree,
+      template: LayoutTemplate,
+      deckId: null,
+      now: FIXED_NOW,
+    });
+    // The brand-tone footer should have the OrangeRed fill (#ff5500).
+    const fillOps = result.ops.filter(
+      (op): op is Extract<typeof op, { type: 'updateShapeProperties' }> =>
+        op.type === 'updateShapeProperties',
+    );
+    const fillColors = fillOps.map((op) => op.properties.fillColor).filter(Boolean);
+    expect(fillColors).toContain('#ff5500');
+  });
+
+  test('noLayout opts out of the layout wrapper', () => {
+    const tree = createElement(
+      Slide,
+      { noLayout: true },
+      createElement(Box, { rect: { x: 24, y: 24, w: 800, h: 400 } }, 'content'),
+    );
+    const result = renderToOps({
+      tree,
+      template: LayoutTemplate,
+      deckId: null,
+      now: FIXED_NOW,
+    });
+    // Only the content Box should be emitted — the layout footer is skipped.
+    const shapeCount = result.ops.filter((op) => op.type === 'createShape').length;
+    expect(shapeCount).toBe(1);
+  });
+
+  test('templates without a layout render slides unchanged', () => {
+    const tree = createElement(
+      Slide,
+      null,
+      createElement(Box, { rect: { x: 24, y: 24, w: 800, h: 400 } }, 'content'),
+    );
+    const result = renderToOps({ tree, template: TestBrand, deckId: null, now: FIXED_NOW });
+    const shapeCount = result.ops.filter((op) => op.type === 'createShape').length;
+    expect(shapeCount).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // <Box fill> tests
 // ---------------------------------------------------------------------------
 

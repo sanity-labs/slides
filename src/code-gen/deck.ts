@@ -6,6 +6,7 @@
  * - `createDeck`       → `slides_create_deck`
  * - `addComponent`     → `slides_add_component`
  * - `editComponent`    → `slides_edit_component`
+ * - `patchComponent`   → `slides_patch_component`
  * - `buildDeck`        → `slides_build`
  *
  * Side-effects are kept here so the MCP server stays a thin wiring layer.
@@ -117,7 +118,7 @@ export const addComponent = async (params: {
   writeFileSync(componentFile, ensurePragma(source));
   writeFileSync(indexPath, writeAnchors(indexBefore, [...existing, name]));
 
-  return finishComponentOp(deckPath);
+  return finishComponentOp(deckPath, extraImportAllowlist);
 };
 
 /**
@@ -145,19 +146,60 @@ export const editComponent = async (params: {
   }
 
   writeFileSync(componentFile, ensurePragma(source));
-  return finishComponentOp(deckPath);
+  return finishComponentOp(deckPath, extraImportAllowlist);
+};
+
+/** Apply targeted search/replace patches to an existing component. */
+export const patchComponent = async (params: {
+  readonly deckPath: string;
+  readonly name: string;
+  readonly patches: ReadonlyArray<{ readonly old: string; readonly new: string }>;
+  readonly extraImportAllowlist?: readonly string[];
+}): Promise<ComponentOpResult> => {
+  const { deckPath, name, patches, extraImportAllowlist = [] } = params;
+  assertValidComponentName(name);
+  assertDeckExists(deckPath);
+
+  const componentFile = componentPath(deckPath, name);
+  if (!existsSync(componentFile)) {
+    throw new Error(
+      `Component "${name}" does not exist at ${componentFile}. ` +
+        `Use slides_add_component to create it first.`,
+    );
+  }
+
+  let source = readFileSync(componentFile, 'utf8');
+  for (const patch of patches) {
+    if (!source.includes(patch.old)) {
+      throw new Error(
+        `Patch failed: could not find "${patch.old.length > 80 ? patch.old.slice(0, 80) + '\u2026' : patch.old}" ` +
+          `in ${name}.tsx. Read the file with slides_build or rewrite with slides_edit_component.`,
+      );
+    }
+    source = source.replace(patch.old, patch.new);
+  }
+
+  assertAllowedImports(source, extraImportAllowlist);
+  writeFileSync(componentFile, source);
+  return finishComponentOp(deckPath, extraImportAllowlist);
 };
 
 /** Type-check only — no file writes. */
-export const buildDeck = async (deckPath: string): Promise<ComponentOpResult> => {
+export const buildDeck = async (
+  deckPath: string,
+  extraImportAllowlist: readonly string[] = [],
+): Promise<ComponentOpResult> => {
   assertDeckExists(deckPath);
-  return finishComponentOp(deckPath);
+  return finishComponentOp(deckPath, extraImportAllowlist);
 };
 
-const finishComponentOp = async (deckPath: string): Promise<ComponentOpResult> => {
-  const typecheck = await typecheckDeck(deckPath);
+const finishComponentOp = async (
+  deckPath: string,
+  extraDeps: readonly string[] = [],
+): Promise<ComponentOpResult> => {
+  const typecheck = await typecheckDeck(deckPath, extraDeps);
   if (!typecheck.ok) return { deckPath, typecheck };
-  const template = await loadDeckTemplate(deckPath);
+  const template = await loadDeckTemplate(deckPath, extraDeps);
   return { deckPath, typecheck, template };
 };
 

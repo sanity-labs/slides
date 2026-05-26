@@ -202,10 +202,13 @@ export const runAgentLoop = async (options: AgentLoopOptions): Promise<AgentOutc
         resultStructured: structured,
         durationMs: Date.now() - t0,
       });
+      // Map MCP content blocks to Anthropic tool_result content blocks,
+      // including images so the model can visually review slides_preview output.
+      const anthropicContent = mcpContentToAnthropic(content);
       toolResults.push({
         type: 'tool_result',
         tool_use_id: block.id,
-        content: resultText !== undefined ? [{ type: 'text', text: resultText }] : [],
+        content: anthropicContent.length > 0 ? anthropicContent : [],
         is_error: isError,
       });
     }
@@ -253,6 +256,45 @@ const loadTools = async (mcp: Client): Promise<Tool[]> => {
     description: t.description ?? '',
     input_schema: (t.inputSchema ?? { type: 'object' }) as Tool['input_schema'],
   }));
+};
+
+type ImageMediaType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
+const IMAGE_MEDIA_TYPES = new Set<string>(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+const isImageMediaType = (s: string): s is ImageMediaType => IMAGE_MEDIA_TYPES.has(s);
+
+/**
+ * Convert MCP content blocks to Anthropic tool_result content blocks.
+ * Handles text and image types — images are mapped to Anthropic's base64
+ * source format so the model can visually review slides_preview output.
+ */
+const mcpContentToAnthropic = (
+  content: ReadonlyArray<unknown>,
+): Array<
+  | { type: 'text'; text: string }
+  | { type: 'image'; source: { type: 'base64'; media_type: ImageMediaType; data: string } }
+> => {
+  const out: Array<
+    | { type: 'text'; text: string }
+    | { type: 'image'; source: { type: 'base64'; media_type: ImageMediaType; data: string } }
+  > = [];
+  for (const block of content) {
+    if (typeof block !== 'object' || block === null || !('type' in block)) continue;
+    const b = block as Record<string, unknown>;
+    if (b.type === 'text' && typeof b.text === 'string') {
+      out.push({ type: 'text', text: b.text });
+    } else if (
+      b.type === 'image' &&
+      typeof b.data === 'string' &&
+      typeof b.mimeType === 'string' &&
+      isImageMediaType(b.mimeType)
+    ) {
+      out.push({
+        type: 'image',
+        source: { type: 'base64', media_type: b.mimeType, data: b.data },
+      });
+    }
+  }
+  return out;
 };
 
 const extractText = (content: ReadonlyArray<unknown>): string | undefined => {

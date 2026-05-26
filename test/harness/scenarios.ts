@@ -400,6 +400,124 @@ const baseScenarios: ReadonlyArray<Scenario> = [
   brandLockRespect,
 ];
 
+const sanityAttMediaLibrary: Scenario = {
+  name: 'sanity-att-media-library',
+  description:
+    'A 16-slide pitch deck selling Sanity Media Library to AT&T. The agent must write several custom components (the template only ships 8 generic types) and compose a full narrative arc with AT&T-specific content.',
+  templatePath: SANITY_TEMPLATE_PATH,
+  userPrompt: [
+    'Create a 16-slide pitch deck selling Sanity Media Library to AT&T.',
+    '',
+    'Context for research (use this, do not make up stats):',
+    '- AT&T operates att.com consumer, AT&T Business, FirstNet, Cricket Wireless, AT&T Fiber, AT&T Prepaid — each with its own digital presence',
+    '- Their content teams deal with asset sprawl: duplicate uploads, expired licenses used unknowingly, no single source of truth for product imagery',
+    '- Engineering teams maintain separate CDN configs, resize pipelines, and metadata schemas per property',
+    '',
+    'Sanity Media Library capabilities:',
+    '- Structured, queryable, versioned media alongside content',
+    '- AI metadata extraction (subjects, scenes, colors, concepts)',
+    '- Code-first schema for custom fields, validation rules, references',
+    '- Cross-project references (upload once, use across all properties)',
+    '- Rights management (license terms, expiration, territories on the asset)',
+    '- Version control with instant rollback',
+    '- CDN image transforms (WebP/AVIF, responsive sizes, focal-point cropping)',
+    '- Bulk operations, orphan detection, workflow automation via Sanity Functions',
+    '',
+    'Deck structure:',
+    '1. Cover',
+    '2. Agenda',
+    '3-5. The challenge at AT&T (section divider + 2 content slides showing the pain)',
+    '6-9. How Sanity solves it (section divider + 3 content slides showing capabilities)',
+    '10-12. AT&T-specific value (section divider + content showing multi-brand/multi-channel fit)',
+    '13-15. Next steps (section divider + pilot proposal + demo placeholder)',
+    '16. Closing/QnA',
+    '',
+    'IMPORTANT: Do NOT just use JSON props for every slide. The template ships generic slide types,',
+    'but this deck needs AT&T-specific layouts. Write at least 2-3 custom React components using',
+    'slides_add_component — for example a before/after comparison, a branded stat card, or an',
+    "AT&T property map. Use the template's chrome helpers (BrandSlide, TopLabel, BrandText, etc.)",
+    "from @sanity-labs/slides-template so custom slides match the template's visual system.",
+    '',
+    'Read slides_guidelines first to understand the brand rules. Read slides_list({ detail: "detailed" })',
+    "to discover the template's additionalImports and color tokens.",
+  ].join('\n'),
+  maxTurns: 200,
+  expect: (outcome) => {
+    const verdicts: Verdict[] = [];
+    must(verdicts, outcome.calledTool('slides_list'), 'agent did not discover the template');
+    must(
+      verdicts,
+      outcome.calledTool('slides_guidelines'),
+      'agent did not read the design guidelines',
+    );
+    must(verdicts, outcome.calledTool('slides_create_deck'), 'agent did not scaffold a deck');
+
+    const addCalls = outcome.toolCalls.filter(
+      (c) => c.name === 'slides_add_component' && !c.isError,
+    );
+    must(
+      verdicts,
+      addCalls.length >= 2,
+      `expected at least 2 custom components, got ${addCalls.length}`,
+    );
+
+    // The agent may produce probe .pptx files while discovering tokens — only
+    // require that at least one .pptx was produced.
+    must(
+      verdicts,
+      outcome.producedPptx.length >= 1,
+      `expected at least 1 .pptx, got ${outcome.producedPptx.length}`,
+    );
+
+    // Find the final (largest slide count) successful slides_create call.
+    const createCalls = outcome.toolCalls.filter((c) => c.name === 'slides_create' && !c.isError);
+    const createCall = createCalls.reduce<(typeof createCalls)[number] | undefined>((best, c) => {
+      const slides = (c.input.slides ?? []) as Array<unknown>;
+      const bestSlides = (best?.input.slides ?? []) as Array<unknown>;
+      return slides.length > bestSlides.length ? c : best;
+    }, createCalls[0]);
+    if (createCall) {
+      const slides = (createCall.input.slides ?? []) as Array<{ component?: string }>;
+      must(verdicts, slides.length >= 14, `expected at least 14 slides, got ${slides.length}`);
+      mustWarn(
+        verdicts,
+        slides[0]?.component === 'Cover',
+        "slide 1 should be the template's Cover",
+      );
+      mustWarn(
+        verdicts,
+        slides[slides.length - 1]?.component === 'Closing',
+        "last slide should be the template's Closing",
+      );
+      // At least some slides should use custom components, not all template builtins
+      const customNames = new Set(addCalls.map((c) => String(c.input.name ?? '')));
+      const customSlideCount = slides.filter((s) => customNames.has(s.component ?? '')).length;
+      must(
+        verdicts,
+        customSlideCount >= 2,
+        `expected at least 2 slides using custom components, got ${customSlideCount}`,
+      );
+    }
+
+    // Brand lock: no raw hex literals in the agent's component source.
+    const sources = addCalls.map((c) => String(c.input.source ?? ''));
+    must(
+      verdicts,
+      !sources.some((s) => /['"]#[0-9a-fA-F]{3,8}['"]/.test(s)),
+      'custom component contains a raw hex color literal — should use brand tokens',
+    );
+
+    // Did the agent use the template's chrome helpers?
+    mustWarn(
+      verdicts,
+      sources.some((s) => /@sanity-labs\/slides-template/.test(s)),
+      "custom component did not import the template's chrome helpers",
+    );
+
+    return verdicts;
+  },
+};
+
 export const scenarios: ReadonlyArray<Scenario> = existsSync(SANITY_TEMPLATE_PATH)
-  ? [...baseScenarios, sanityInvestorDeck]
+  ? [...baseScenarios, sanityInvestorDeck, sanityAttMediaLibrary]
   : baseScenarios;

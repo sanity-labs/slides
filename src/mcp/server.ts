@@ -43,11 +43,19 @@ import {
   buildDeck,
   createDeck,
   editComponent,
+  patchComponent,
   type ComponentOpResult,
 } from '../code-gen/index.js';
-import { CANVAS_16_9, type SlidesRuntime, type Template } from '../core/index.js';
+import {
+  CANVAS_16_9,
+  FakeSlidesRuntime,
+  renderToOps,
+  type SlidesRuntime,
+  type Template,
+} from '../core/index.js';
 import { errorResult, zodErrorResult } from './errors.js';
-import { renderSlides } from './render.js';
+import { renderSlidesToPng } from './preview-render.js';
+import { renderSlides, type SlideSpec } from './render.js';
 
 /** Configuration accepted by createSlideServer. */
 export interface SlideServerConfig {
@@ -95,6 +103,7 @@ export const createSlideServer = (config: SlideServerConfig): SlideServer => {
   registerGuidelinesTool(mcp, state);
   registerValidateTool(mcp, state);
   registerCreateTool(mcp, runtime, state);
+  registerPreviewTool(mcp, state);
   registerCodeGenTools(mcp, state);
 
   return {
@@ -492,6 +501,119 @@ const registerCreateTool = (mcp: McpServer, runtime: SlidesRuntime, state: Serve
 };
 
 // ---------------------------------------------------------------------------
+// slides_preview
+// ---------------------------------------------------------------------------
+
+const PREVIEW_INPUT_SHAPE = {
+  slides: z
+    .array(SLIDE_SPEC_SCHEMA)
+    .min(1)
+    .describe('The slides to preview, same format as slides_create.'),
+  slideIndices: z
+    .array(z.number().int().nonnegative())
+    .optional()
+    .describe(
+      'Optional 0-based indices of which slides to preview. ' +
+        'When omitted, previews all slides. Use this to preview only the slides you changed ' +
+        'instead of re-rendering the entire deck.',
+    ),
+};
+
+const PREVIEW_OUTPUT_SHAPE = {
+  slideCount: z.number().int().nonnegative(),
+};
+
+const registerPreviewTool = (mcp: McpServer, state: ServerState): void => {
+  mcp.registerTool(
+    'slides_preview',
+    {
+      title: 'Preview slides as images',
+      description:
+        'Render a list of slide specs to PNG images and return them inline. ' +
+        'Use this after slides_create to visually review what you produced, or ' +
+        'before slides_create to check layout before writing the .pptx. ' +
+        'Same input format as slides_create (minus the title). ' +
+        'Returns one image content block per slide.',
+      inputSchema: PREVIEW_INPUT_SHAPE,
+      outputSchema: PREVIEW_OUTPUT_SHAPE,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async (input) => {
+      const template = effectiveTemplate(state);
+      const specs: SlideSpec[] = input.slides;
+
+      // Build the React tree from specs (same validation as slides_create)
+      const { createElement, Fragment } = await import('react');
+      const children: import('react').ReactNode[] = [];
+      for (let i = 0; i < specs.length; i++) {
+        const spec = specs[i];
+        if (!spec) continue;
+        const component = template.components[spec.component];
+        if (!component) {
+          return errorResult(
+            'unknown_component',
+            `slides_preview: slides[${i}].component "${spec.component}" not found.`,
+          );
+        }
+        const parsed = component.schema.safeParse(spec.props);
+        if (!parsed.success) {
+          return zodErrorResult(
+            `slides_preview: validation error in slides[${i}] ("${spec.component}"):`,
+            parsed.error as ZodError,
+            'Fix the listed fields.',
+          );
+        }
+        children.push(createElement(component.component, { key: i, ...parsed.data }));
+      }
+
+      const tree = createElement(Fragment, null, ...children);
+
+      try {
+        const canvas = template.canvas;
+        const result = renderToOps({ tree, template, deckId: null });
+        const fake = new FakeSlidesRuntime();
+        const { deckId } = await fake.createDeckFromMaster(template.name, 'preview');
+        await fake.applyOps(deckId, result.ops);
+        const deck = fake.getDeck(deckId);
+        if (!deck) {
+          return errorResult(
+            'runtime_error',
+            'slides_preview: FakeSlidesRuntime returned no deck.',
+          );
+        }
+
+        const pngs = renderSlidesToPng(deck, canvas);
+        const indices = input.slideIndices;
+        const selectedPngs = indices ? pngs.filter((_, i) => indices.includes(i)) : pngs;
+        const imageBlocks = selectedPngs.map((buf) => ({
+          type: 'image' as const,
+          data: buf.toString('base64'),
+          mimeType: 'image/png' as const,
+        }));
+
+        const textBlock = {
+          type: 'text' as const,
+          text: `Rendered ${selectedPngs.length} of ${pngs.length} slide preview(s). Review the images above for layout, text overflow, color contrast, and brand compliance issues. Fix any problems before calling slides_create.`,
+        };
+
+        return {
+          content: [...imageBlocks, textBlock],
+          structuredContent: { slideCount: pngs.length },
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return errorResult('reconciler_error', `slides_preview render failed: ${message}`);
+      }
+    },
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Code-gen tools (create_deck / add_component / edit_component / build)
 // ---------------------------------------------------------------------------
 
@@ -665,6 +787,55 @@ const registerCodeGenTools = (mcp: McpServer, state: ServerState): void => {
     },
   );
 
+  // slides_patch_component
+  mcp.registerTool(
+    'slides_patch_component',
+    {
+      title: 'Patch a component with search/replace',
+      description:
+        'Apply targeted search/replace patches to an existing component. ' +
+        'Use this instead of slides_edit_component when you need to fix a className, ' +
+        'change a prop default, or tweak a size \u2014 any change where rewriting the entire ' +
+        'file would waste tokens. Each patch replaces the first occurrence of `old` with `new`. ' +
+        'Fails fast if `old` is not found in the file.',
+      inputSchema: {
+        deckPath: z.string().min(1).describe('Path to the deck project.'),
+        name: z.string().min(1).describe('PascalCase component name.'),
+        patches: z
+          .array(
+            z.object({
+              old: z.string().min(1).describe('Exact text to find in the component source.'),
+              new: z.string().describe('Replacement text.'),
+            }),
+          )
+          .min(1)
+          .describe('Search/replace pairs. Applied sequentially; each replaces the first match.'),
+      },
+      outputSchema: CODE_GEN_OUTPUT_SHAPE,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ deckPath, name, patches }) => {
+      try {
+        const extras = effectiveTemplate(state).additionalImportAllowlist ?? [];
+        const result = await patchComponent({
+          deckPath,
+          name,
+          patches,
+          extraImportAllowlist: extras,
+        });
+        adoptOpResult(state, result);
+        return successResult({ ...result, template: effectiveTemplate(state) });
+      } catch (err) {
+        return errorResult('edit_component_failed', errMessage(err));
+      }
+    },
+  );
+
   mcp.registerTool(
     'slides_build',
     {
@@ -688,7 +859,8 @@ const registerCodeGenTools = (mcp: McpServer, state: ServerState): void => {
     },
     async ({ deckPath }) => {
       try {
-        const result = await buildDeck(deckPath);
+        const extras = effectiveTemplate(state).additionalImportAllowlist ?? [];
+        const result = await buildDeck(deckPath, extras);
         adoptOpResult(state, result);
         return successResult({ ...result, template: effectiveTemplate(state) });
       } catch (err) {

@@ -47,6 +47,26 @@ export interface SlideProps {
    * direct width in pt). Inline `style` wins over `className` on collision.
    */
   style?: YogaStyle;
+  /**
+   * Per-slide variation passed to the template's `layout` component.
+   *
+   * Templates that declare a `layout` (e.g. a brand chrome wrapper) can
+   * read these to customise individual slides — a Cover might pass
+   * `{ tone: 'dark', lockup: true }` while content slides pass nothing.
+   *
+   * Ignored when the active template has no `layout` set, or when
+   * `noLayout` is true.
+   */
+  layoutProps?: Record<string, unknown>;
+  /**
+   * Skip the template's `layout` wrapper for this slide.
+   *
+   * Use sparingly — for full-bleed photos, one-off graphic slides, or
+   * cases where the template chrome would interfere with the content.
+   * Most slides should let the layout wrap them so the deck reads as a
+   * single, consistent visual system.
+   */
+  noLayout?: boolean;
 }
 
 /**
