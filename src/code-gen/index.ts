@@ -4,6 +4,7 @@
  * - `createDeck`        — scaffold a writable deck project.
  * - `addComponent`      — write a new `.tsx` slide + register it.
  * - `editComponent`     — overwrite an existing slide's source.
+ * - `patchComponent`    — search/replace patches on an existing slide.
  * - `buildDeck`         — type-check only.
  * - `loadDeckTemplate`  — re-read the deck's compiled template.
  */
@@ -12,6 +13,7 @@ export {
   createDeck,
   addComponent,
   editComponent,
+  patchComponent,
   buildDeck,
   type CreateDeckResult,
   type ComponentOpResult,

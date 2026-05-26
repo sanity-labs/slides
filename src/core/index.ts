@@ -21,7 +21,12 @@ export {
 
 // Template contract
 export type { Template, TypographyToken } from './template.js';
-export { defineTemplate, defineTemplateComponent, type TemplateComponent } from './template.js';
+export {
+  defineTemplate,
+  defineLayout,
+  defineTemplateComponent,
+  type TemplateComponent,
+} from './template.js';
 export { type FontStack } from './font-resolver.js';
 
 // Runtime op types

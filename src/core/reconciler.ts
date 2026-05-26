@@ -51,6 +51,8 @@
 import {
   Children,
   Fragment,
+  cloneElement,
+  createElement,
   isValidElement,
   type FunctionComponent,
   type ReactElement,
@@ -243,6 +245,27 @@ const resolveNode = (node: ReactNode, ctx: WalkContext): ReactElement[] => {
   throw new ReconcilerError(`Unsupported element type ${typeName}.`, ctx);
 };
 
+/**
+ * Wrap a `<Slide>`'s children with the template's layout component, if any.
+ *
+ * Returns a cloned Slide element with its children replaced by
+ * `<Layout layoutProps={...}>{originalChildren}</Layout>`. When the template
+ * has no layout, or the slide passes `noLayout`, returns the original
+ * element unchanged.
+ */
+const wrapSlideWithLayout = (slide: ReactElement, template: Template): ReactElement => {
+  const Layout = template.layout;
+  if (!Layout) return slide;
+  const props = (slide.props ?? {}) as {
+    children?: ReactNode;
+    layoutProps?: Record<string, unknown>;
+    noLayout?: boolean;
+  };
+  if (props.noLayout) return slide;
+  const wrapped = createElement(Layout, { layoutProps: props.layoutProps }, props.children);
+  return cloneElement(slide, {}, wrapped);
+};
+
 const collectSlides = (tree: ReactNode, ctx: WalkContext): ReactElement[] => {
   const resolved = resolveNode(tree, ctx);
   for (const el of resolved) {
@@ -264,12 +287,20 @@ const walkSlide = (slide: ReactElement, index: number, ctx: WalkContext): void =
     insertAt: index,
   });
 
+  // Apply the template's layout wrapper (if any) to the slide's children.
+  // This is the framework-level equivalent of a Next.js <Layout>: every
+  // <Slide> automatically gets the template's chrome (background, logo,
+  // footer, safe-zone padding) so both curated and agent-authored slides
+  // share a single visual system. The per-slide `layoutProps` is passed
+  // through; `noLayout` opts out for full-bleed photos or one-off graphics.
+  const wrappedSlide = wrapSlideWithLayout(slide, ctx.template);
+
   // Run Yoga layout for this slide's tree. The returned LayoutNode tree
   // mirrors the resolved JSX (with function components invoked) and carries
   // computed rects + className-resolved fill/textStyle on every Box.
   let layoutTree: LayoutNode;
   try {
-    layoutTree = layoutSlide(slide, ctx.template, ctx.template.canvas, (node) =>
+    layoutTree = layoutSlide(wrappedSlide, ctx.template, ctx.template.canvas, (node) =>
       resolveNode(node, ctx),
     );
   } catch (err) {

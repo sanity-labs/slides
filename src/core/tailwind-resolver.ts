@@ -237,21 +237,32 @@ const STATIC_CLASSES = new Map<string, Handler>([
   ['leading-loose', () => void 0],
 ]);
 
-/** Text-size keywords on a fixed scale. */
+/**
+ * Text-size keywords, calibrated for presentation viewing distance.
+ *
+ * Tailwind's standard web scale (8–72pt) assumes ~1x viewing distance. Slide
+ * decks are viewed at ~3–5x: from the back of a meeting room or via a
+ * projector. We multiply the whole scale by ~1.5–2x so every class lands in
+ * a presentation-readable range without the agent having to think about it.
+ *
+ * Minimum (`text-xs`) is 12pt — the smallest legible size for metadata
+ * (footers, captions, eyebrows) viewed at projection distance. Body copy
+ * starts at `text-base` (20pt). Titles start at `text-4xl` (48pt).
+ */
 const TEXT_SIZES: ReadonlyMap<string, number> = new Map([
-  ['text-xs', 8],
-  ['text-sm', 10],
-  ['text-base', 12],
-  ['text-lg', 14],
-  ['text-xl', 16],
-  ['text-2xl', 20],
-  ['text-3xl', 24],
-  ['text-4xl', 32],
-  ['text-5xl', 40],
-  ['text-6xl', 48],
-  ['text-7xl', 56],
-  ['text-8xl', 64],
-  ['text-9xl', 72],
+  ['text-xs', 12],
+  ['text-sm', 16],
+  ['text-base', 20],
+  ['text-lg', 24],
+  ['text-xl', 28],
+  ['text-2xl', 32],
+  ['text-3xl', 40],
+  ['text-4xl', 48],
+  ['text-5xl', 56],
+  ['text-6xl', 64],
+  ['text-7xl', 72],
+  ['text-8xl', 80],
+  ['text-9xl', 96],
 ]);
 
 const textSizeKeys = (): string[] => [...TEXT_SIZES.keys()];
@@ -290,7 +301,10 @@ const matchHandler = (raw: string, template: Template): Handler | undefined => {
   const staticHandler = STATIC_CLASSES.get(raw);
   if (staticHandler) return staticHandler;
 
-  const sizeHandler = matchTextSize(raw);
+  const roleHandler = matchTypographyRole(raw, template);
+  if (roleHandler) return roleHandler;
+
+  const sizeHandler = matchTextSize(raw, template);
   if (sizeHandler) return sizeHandler;
 
   const spacingHandler = matchSpacing(raw, template);
@@ -302,7 +316,34 @@ const matchHandler = (raw: string, template: Template): Handler | undefined => {
   return undefined;
 };
 
-const matchTextSize = (raw: string): Handler | undefined => {
+/**
+ * Match a class against `template.typography` role tokens.
+ *
+ * Templates declare typography roles (`title`, `body`, `eyebrow`, etc.) as
+ * keys in `template.typography`. Each role bundles fontSize + fontWeight +
+ * fontFamily + lineHeight — the canonical "how this kind of text should
+ * look in this brand." Agents reach for these via `text-role-<name>` to
+ * stay typographically consistent across slides instead of guessing
+ * between `text-3xl` / `text-4xl` / `text-5xl` on every component.
+ *
+ * Example: `<Box className="text-role-title">` in any custom component
+ * will render at the same size/weight/family as the template's curated
+ * title slides.
+ */
+const matchTypographyRole = (raw: string, template: Template): Handler | undefined => {
+  const prefix = 'text-role-';
+  if (!raw.startsWith(prefix)) return undefined;
+  const role = raw.slice(prefix.length);
+  const tok = template.typography[role];
+  if (!tok) return undefined;
+  return (s) => {
+    s.text.fontSize = tok.fontSize;
+    s.text.fontFamily = tok.fontFamily;
+    if (tok.fontWeight !== undefined && tok.fontWeight >= 600) s.text.bold = true;
+  };
+};
+
+const matchTextSize = (raw: string, _template: Template): Handler | undefined => {
   const pt = TEXT_SIZES.get(raw);
   if (pt === undefined) return undefined;
   return (s) => void (s.text.fontSize = pt);
@@ -449,6 +490,9 @@ const candidateClasses = (template: Template): string[] => {
   const out: string[] = [];
   out.push(...STATIC_CLASSES.keys());
   out.push(...TEXT_SIZES.keys());
+  for (const role of Object.keys(template.typography)) {
+    out.push(`text-role-${role}`);
+  }
   for (const prefix of SPACING_PREFIXES) {
     for (const n of spacingScale()) out.push(`${prefix}-${n}`);
     for (const token of Object.keys(template.spacing)) out.push(`${prefix}-${token}`);

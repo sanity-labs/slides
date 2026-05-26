@@ -64,6 +64,69 @@ export interface Template {
    * Keep it concise and actionable — this burns tokens on every session.
    */
   readonly skill?: string;
+
+  /**
+   * Wrapper component applied to every slide's content automatically.
+   *
+   * Analogous to a Next.js `<Layout>`: the template declares the chrome
+   * once (background, logo, footer, safe-zone padding, dotted rules), and
+   * the framework wraps every `<Slide>`'s children with it — both the
+   * template's curated components AND agent-authored custom components.
+   *
+   * The layout receives the slide's `layoutProps` so individual slides can
+   * customise per-instance variation (e.g. `{ tone: 'brand', lockup: true }`
+   * for a Cover, `{ tone: 'dark' }` for content slides). The layout component
+   * decides what to do with these.
+   *
+   * For the rare slide that needs to opt out entirely (full-bleed photo,
+   * one-off graphic), pass `<Slide noLayout>`.
+   *
+   * With `layout` set, agent-authored custom components don't need to
+   * import any template-specific chrome helpers — the framework guarantees
+   * every slide gets consistent chrome. This keeps the framework SKILL
+   * template-agnostic.
+   */
+  readonly layout?: ComponentType<{
+    readonly children?: ReactNode;
+    readonly layoutProps?: Record<string, unknown>;
+  }>;
 }
 
 export const defineTemplate = (template: Template): Template => template;
+
+/**
+ * Define a typed layout component for a template.
+ *
+ * Templates declare a layout that the framework wraps every `<Slide>` with.
+ * The framework treats `layoutProps` as `Record<string, unknown>` because
+ * agent-authored code is untyped JSON, but TEMPLATE authors writing curated
+ * components want type safety. `defineLayout<P>` gives them that: the
+ * layout function sees `layoutProps?: P` with full autocomplete, and the
+ * framework receives the same component cast to the loose record shape.
+ *
+ * ```ts
+ * type SanityLayoutProps = {
+ *   readonly tone?: 'dark' | 'brand' | 'blue';
+ *   readonly lockup?: boolean;
+ *   readonly footer?: string | null;
+ * };
+ *
+ * export const SanityLayout = defineLayout<SanityLayoutProps>(
+ *   ({ children, layoutProps }) => {
+ *     // layoutProps is typed — no casts, autocomplete on tone/lockup/footer.
+ *     const tone = layoutProps?.tone ?? 'dark';
+ *     return <>{children}<Footer tone={tone} /></>;
+ *   },
+ * );
+ * ```
+ */
+export const defineLayout = <P = Record<string, unknown>>(
+  layout: ComponentType<{ readonly children?: ReactNode; readonly layoutProps?: P }>,
+): ComponentType<{
+  readonly children?: ReactNode;
+  readonly layoutProps?: Record<string, unknown>;
+}> =>
+  layout as ComponentType<{
+    readonly children?: ReactNode;
+    readonly layoutProps?: Record<string, unknown>;
+  }>;

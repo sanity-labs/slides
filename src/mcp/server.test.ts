@@ -152,7 +152,7 @@ const makeHarness = async (): Promise<Harness> => {
 // ---------------------------------------------------------------------------
 
 describe('createSlideServer — tool registration', () => {
-  test('exposes a curated set of eight tools, no per-slide-type tools', async () => {
+  test('exposes a curated set of ten tools, no per-slide-type tools', async () => {
     const h = await makeHarness();
     try {
       const list = await h.client.listTools();
@@ -165,6 +165,8 @@ describe('createSlideServer — tool registration', () => {
         'slides_edit_component',
         'slides_guidelines',
         'slides_list',
+        'slides_patch_component',
+        'slides_preview',
         'slides_validate',
       ]);
     } finally {

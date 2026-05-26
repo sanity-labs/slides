@@ -31,8 +31,11 @@ export type TypecheckResult =
 /**
  * Run tsc against the deck's `tsconfig.json`, return formatted diagnostics.
  */
-export const typecheckDeck = async (deckPath: string): Promise<TypecheckResult> => {
-  linkDeckDeps(deckPath);
+export const typecheckDeck = async (
+  deckPath: string,
+  extraDeps: readonly string[] = [],
+): Promise<TypecheckResult> => {
+  linkDeckDeps(deckPath, extraDeps);
   const ts = (await import('typescript')).default;
 
   const configPath = join(deckPath, 'tsconfig.json');
