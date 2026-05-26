@@ -92,6 +92,7 @@ export const createSlideServer = (config: SlideServerConfig): SlideServer => {
   const mcp = new McpServer(serverInfo);
 
   registerListTool(mcp, state);
+  registerGuidelinesTool(mcp, state);
   registerValidateTool(mcp, state);
   registerCreateTool(mcp, runtime, state);
   registerCodeGenTools(mcp, state);
@@ -264,6 +265,13 @@ const registerListTool = (mcp: McpServer, state: ServerState): void => {
             "slide type's props.",
         );
       }
+      if (effective.skill) {
+        lines.push('');
+        lines.push(
+          'This template ships design guidelines. Call slides_guidelines to read them ' +
+            'before composing your first slide.',
+        );
+      }
       return {
         content: [{ type: 'text' as const, text: lines.join('\n') }],
         structuredContent: {
@@ -271,6 +279,65 @@ const registerListTool = (mcp: McpServer, state: ServerState): void => {
           deckPath: state.deck?.path ?? null,
           slides,
           ...(wantSchemas && extras.length > 0 ? { additionalImports: [...extras] } : {}),
+        },
+      };
+    },
+  );
+};
+
+// ---------------------------------------------------------------------------
+// slides_guidelines
+// ---------------------------------------------------------------------------
+
+const GUIDELINES_INPUT_SHAPE = {};
+
+const GUIDELINES_OUTPUT_SHAPE = {
+  template: z.string(),
+  hasGuidelines: z.boolean(),
+  guidelines: z.string().nullable(),
+};
+
+const registerGuidelinesTool = (mcp: McpServer, state: ServerState): void => {
+  mcp.registerTool(
+    'slides_guidelines',
+    {
+      title: 'Template design guidelines',
+      description:
+        "Read the active template's design guidelines — brand rules, component usage " +
+        'patterns, and visual constraints that the template author wants you to follow. ' +
+        'Call once at the start of a session. Returns null when the template has no ' +
+        'guidelines.',
+      inputSchema: GUIDELINES_INPUT_SHAPE,
+      outputSchema: GUIDELINES_OUTPUT_SHAPE,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async () => {
+      const effective = effectiveTemplate(state);
+      const skill = effective.skill ?? null;
+      const hasGuidelines = skill !== null;
+
+      const lines: string[] = [];
+      lines.push(`Template: ${effective.name}`);
+      if (hasGuidelines) {
+        lines.push('');
+        lines.push(skill);
+      } else {
+        lines.push('');
+        lines.push('No template-specific design guidelines are available.');
+        lines.push('Follow the general SKILL guidance for this session.');
+      }
+
+      return {
+        content: [{ type: 'text' as const, text: lines.join('\n') }],
+        structuredContent: {
+          template: effective.name,
+          hasGuidelines,
+          guidelines: skill,
         },
       };
     },

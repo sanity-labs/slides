@@ -50,6 +50,20 @@ export interface Template {
    * knows which extras it can reach for.
    */
   readonly additionalImportAllowlist?: ReadonlyArray<string>;
+  /**
+   * Template-specific design guidelines for the MCP agent.
+   *
+   * A markdown string that teaches the agent about the template's brand rules,
+   * component usage patterns, do's and don'ts, and visual design constraints.
+   * Surfaced through the `slides_guidelines` MCP tool so the agent can read
+   * it once at session start.
+   *
+   * The framework's global SKILL.md teaches the general tool workflow;
+   * the template's skill teaches brand-specific rules that layer on top.
+   *
+   * Keep it concise and actionable — this burns tokens on every session.
+   */
+  readonly skill?: string;
 }
 
 export const defineTemplate = (template: Template): Template => template;

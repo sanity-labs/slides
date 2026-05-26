@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "dev": "slides-dev",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node -e \"require('node:fs').cpSync('src/SKILL.md','dist/SKILL.md')\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "serve": "slidesctl serve --template ./dist/index.js",
     "generate": "slidesctl generate --template ./dist/index.js"
