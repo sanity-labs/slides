@@ -1,6 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { CANVAS_16_9, defineTemplate, defineTemplateComponent } from '@sanity-labs/slides';
 import { Cover, CoverSchema } from './components/Cover.js';
 import { preview } from './preview.js';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const skill = readFileSync(resolve(HERE, 'SKILL.md'), 'utf8');
 
 export const __IDENT__ = defineTemplate({
   name: '__NAME__',
@@ -30,4 +36,5 @@ export const __IDENT__ = defineTemplate({
     }),
   },
   preview,
+  skill,
 });

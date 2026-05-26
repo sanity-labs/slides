@@ -62,25 +62,27 @@ Use this skill when the user asks for a slide deck and any of the following are 
 
 Do **not** invent slide content with `Box`/`Text` primitives directly in arbitrary JSON. Either pick a prebuilt slide type (tier 1) or write a real React component (tier 2). Primitives are not a runtime-callable surface — they're a library you build with.
 
-## Tool surface (7 tools total)
+## Tool surface (8 tools total)
 
-| Tool                    | Tier   | Use it for                                                                                   |
-| ----------------------- | ------ | -------------------------------------------------------------------------------------------- |
-| `slides_list`           | both   | Discover what slide types are available. Pass `detail: "detailed"` to also get JSON Schemas. |
-| `slides_validate`       | tier 1 | Validate one `{ component, props }` pair against the active schema. Optional but useful.     |
-| `slides_create`         | both   | Render an array of `{ component, props }` to `.pptx`. Returns the absolute file path.        |
-| `slides_create_deck`    | tier 2 | Scaffold a writable deck project. After this, the server's active template is the deck.      |
-| `slides_add_component`  | tier 2 | Write a new TSX slide into the deck. Imports allowlist enforced; typechecked.                |
-| `slides_edit_component` | tier 2 | Overwrite an existing component (e.g. after a typecheck error).                              |
-| `slides_build`          | tier 2 | Re-run tsc without writing files.                                                            |
+| Tool                    | Tier   | Use it for                                                                                                        |
+| ----------------------- | ------ | ----------------------------------------------------------------------------------------------------------------- |
+| `slides_list`           | both   | Discover what slide types are available. Pass `detail: "detailed"` to also get JSON Schemas.                      |
+| `slides_guidelines`     | both   | Read the template's design guidelines — brand rules, do's/don'ts, visual constraints. Call once at session start. |
+| `slides_validate`       | tier 1 | Validate one `{ component, props }` pair against the active schema. Optional but useful.                          |
+| `slides_create`         | both   | Render an array of `{ component, props }` to `.pptx`. Returns the absolute file path.                             |
+| `slides_create_deck`    | tier 2 | Scaffold a writable deck project. After this, the server's active template is the deck.                           |
+| `slides_add_component`  | tier 2 | Write a new TSX slide into the deck. Imports allowlist enforced; typechecked.                                     |
+| `slides_edit_component` | tier 2 | Overwrite an existing component (e.g. after a typecheck error).                                                   |
+| `slides_build`          | tier 2 | Re-run tsc without writing files.                                                                                 |
 
 ## Tier 1 — JSON props
 
 1. **Discover.** Call `slides_list` (concise). Read every `description`.
-2. **Get schemas before composing.** Call `slides_list({ detail: "detailed" })` once before writing slide props. This returns `inputJsonSchema` per slide type — your source of truth for what each slide accepts. Saves you guessing fields and round-tripping through `slides_validate`.
-3. **Plan.** Map the user's request to a sequence of slide types. Common shape: `Cover` → 1–3 body slides → `Closing`.
-4. **(Optional) Validate.** For complex slides (grids, lists, charts), call `slides_validate({ component, props })` to catch schema errors with field-level paths before paying the cost of a full `slides_create`. Skip if you've already cross-checked against the JSON Schema yourself.
-5. **Create.** Call `slides_create({ title, slides: [...] })`. Surface the returned `filePath` verbatim.
+2. **Read guidelines.** If `slides_list` says guidelines are available, call `slides_guidelines` before composing any slides. Template authors use these to document brand rules, component-selection heuristics, and visual constraints that aren't captured in schemas alone.
+3. **Get schemas before composing.** Call `slides_list({ detail: "detailed" })` once before writing slide props. This returns `inputJsonSchema` per slide type — your source of truth for what each slide accepts. Saves you guessing fields and round-tripping through `slides_validate`.
+4. **Plan.** Map the user's request to a sequence of slide types. Common shape: `Cover` → 1–3 body slides → `Closing`.
+5. **(Optional) Validate.** For complex slides (grids, lists, charts), call `slides_validate({ component, props })` to catch schema errors with field-level paths before paying the cost of a full `slides_create`. Skip if you've already cross-checked against the JSON Schema yourself.
+6. **Create.** Call `slides_create({ title, slides: [...] })`. Surface the returned `filePath` verbatim.
 
 ## Tier 2 — code-gen
 

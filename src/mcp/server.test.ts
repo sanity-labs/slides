@@ -152,7 +152,7 @@ const makeHarness = async (): Promise<Harness> => {
 // ---------------------------------------------------------------------------
 
 describe('createSlideServer — tool registration', () => {
-  test('exposes a curated set of seven tools, no per-slide-type tools', async () => {
+  test('exposes a curated set of eight tools, no per-slide-type tools', async () => {
     const h = await makeHarness();
     try {
       const list = await h.client.listTools();
@@ -163,6 +163,7 @@ describe('createSlideServer — tool registration', () => {
         'slides_create',
         'slides_create_deck',
         'slides_edit_component',
+        'slides_guidelines',
         'slides_list',
         'slides_validate',
       ]);
@@ -244,6 +245,77 @@ describe('slides_list', () => {
       expect(cover?.inputJsonSchema?.additionalProperties).toBe(false);
     } finally {
       await h.close();
+    }
+  });
+});
+
+describe('slides_guidelines', () => {
+  test('returns null guidelines when template has no skill', async () => {
+    const h = await makeHarness();
+    try {
+      const result = await h.client.callTool({ name: 'slides_guidelines', arguments: {} });
+      expect(result.isError).toBeFalsy();
+      const sc = result.structuredContent as {
+        template: string;
+        hasGuidelines: boolean;
+        guidelines: string | null;
+      };
+      expect(sc.template).toBe('test');
+      expect(sc.hasGuidelines).toBe(false);
+      expect(sc.guidelines).toBeNull();
+    } finally {
+      await h.close();
+    }
+  });
+
+  test('returns the skill when the template provides one', async () => {
+    const skillContent = '# My Brand Rules\n\nAlways use Cover first.';
+    const templateWithSkill: Template = {
+      ...TestTemplate,
+      skill: skillContent,
+    };
+    if (!activeDir) throw new Error('activeDir not set');
+    const runtime = new PptxSlidesRuntime({ outputDir: activeDir });
+    const server = createSlideServer({ template: templateWithSkill, runtime });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+    try {
+      const result = await client.callTool({ name: 'slides_guidelines', arguments: {} });
+      expect(result.isError).toBeFalsy();
+      const sc = result.structuredContent as {
+        template: string;
+        hasGuidelines: boolean;
+        guidelines: string | null;
+      };
+      expect(sc.template).toBe('test');
+      expect(sc.hasGuidelines).toBe(true);
+      expect(sc.guidelines).toBe(skillContent);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  test('slides_list hints about guidelines when skill is present', async () => {
+    const templateWithSkill: Template = {
+      ...TestTemplate,
+      skill: '# Rules',
+    };
+    if (!activeDir) throw new Error('activeDir not set');
+    const runtime = new PptxSlidesRuntime({ outputDir: activeDir });
+    const server = createSlideServer({ template: templateWithSkill, runtime });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+    try {
+      const result = await client.callTool({ name: 'slides_list', arguments: {} });
+      expect(result.isError).toBeFalsy();
+      const text = (result.content as Array<{ text: string }>)[0]?.text ?? '';
+      expect(text).toMatch(/slides_guidelines/);
+    } finally {
+      await client.close();
+      await server.close();
     }
   });
 });
