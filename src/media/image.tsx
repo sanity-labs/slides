@@ -12,9 +12,13 @@
  *      { type, identifier, resolvedUrl, resolvedAt } }` boilerplate.
  *   2. Requires `alt` at the type level. The primitive's `altText` is
  *      optional; the wrapper closes that accessibility hole.
- *   3. Optional `width` + `height` set the intrinsic aspect ratio via inline
- *      `style.aspectRatio`. Yoga picks it up and the image keeps its shape
- *      when sized with `className="w-1/2"` and friends.
+ *   3. Optional `width` + `height` carry the image's intrinsic pixel
+ *      dimensions to the PPTX runtime so `fit: 'contain'` can inscribe an
+ *      aspect-correct rect inside the laid-out box. The dev viewer's CSS
+ *      `object-fit` doesn't need them. Sizing is otherwise driven by
+ *      `className` (`w-1/2`, `flex-1`, `aspect-square`, etc.); the wrapper
+ *      doesn't impose a Yoga `aspectRatio` because that fights flex sizing
+ *      and produces images that overflow their cell.
  *   4. Passes `fit` / `opacity` / `rotate` through to the primitive, which
  *      forwards them to the runtime as pptxgenjs `sizing` / `transparency` /
  *      `rotate` on PPTX export and CSS `object-fit` / `opacity` / `transform`
@@ -70,10 +74,13 @@ export type ImageProps = {
   readonly alt: string;
 
   /**
-   * Intrinsic pixel width. When both `width` and `height` are provided the
-   * wrapper sets `style.aspectRatio = width / height` so flex sizing with
-   * `className="w-1/2"` (or `style={{ width: ... }}`) preserves the image's
-   * shape \u2014 same trick `next/image` uses to prevent layout shift.
+   * Intrinsic pixel width. Carried through to the PPTX runtime as
+   * `intrinsicWidth` so `fit: 'contain'` can inscribe an aspect-correct
+   * rect inside the laid-out box. Not used for browser layout (the dev
+   * viewer's CSS `object-fit` derives aspect from the loaded image).
+   *
+   * To control the rendered shape, pin sizing via `className` — e.g.
+   * `aspect-video`, `aspect-square`, or paired `w-*` / `h-*` classes.
    */
   readonly width?: number;
 
@@ -103,7 +110,7 @@ export type ImageProps = {
   readonly style?: YogaStyle;
 
   /** Optional slot ID for re-fill workflows. */
-  readonly slotId?: PrimitiveImageProps['slotId'];
+  readonly slotId?: NonNullable<PrimitiveImageProps['slotId']>;
 };
 
 const RESOLVED_AT = (): string => new Date().toISOString();
@@ -131,15 +138,6 @@ const synthesizeArtifact = (url: string): ArtifactRef => ({
 const toImageRef = (src: string | ImageRef): ImageRef =>
   typeof src === 'string' ? { url: src, artifact: synthesizeArtifact(src) } : src;
 
-const aspectRatioStyle = (
-  width: number | undefined,
-  height: number | undefined,
-): YogaStyle | undefined => {
-  if (width === undefined || height === undefined) return undefined;
-  if (width <= 0 || height <= 0) return undefined;
-  return { aspectRatio: width / height };
-};
-
 /**
  * The friendly `<Image>` component. See module docs above for the why and
  * the surface; see `ImageProps` for per-prop semantics.
@@ -157,16 +155,16 @@ export const Image = ({
   slotId,
 }: ImageProps): ReactElement => {
   const image = toImageRef(src);
-  const aspect = aspectRatioStyle(width, height);
-  const mergedStyle: YogaStyle | undefined = aspect === undefined ? style : { ...aspect, ...style };
 
   return (
     <ImagePrimitive
       image={image}
       altText={alt}
       {...(className !== undefined ? { className } : {})}
-      {...(mergedStyle !== undefined ? { style: mergedStyle } : {})}
+      {...(style !== undefined ? { style } : {})}
       {...(fit !== undefined ? { fit } : {})}
+      {...(width !== undefined ? { intrinsicWidth: width } : {})}
+      {...(height !== undefined ? { intrinsicHeight: height } : {})}
       {...(opacity !== undefined ? { opacity } : {})}
       {...(rotate !== undefined ? { rotate } : {})}
       {...(slotId !== undefined ? { slotId } : {})}

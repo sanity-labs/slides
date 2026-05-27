@@ -72,9 +72,11 @@ describe('<Image> (media wrapper)', () => {
     expect(op.url).toBe(ref.url);
   });
 
-  test('width + height inform layout via aspectRatio inline style', () => {
-    // The wrapper hands aspectRatio to Yoga via style; the resulting rect
-    // should be a 16:9 box when only one dimension is constrained.
+  test('width + height do NOT impose Yoga aspectRatio (className drives sizing)', () => {
+    // Deliberate non-behavior: the wrapper used to set `style.aspectRatio`
+    // from `width` / `height`, but that fought `flex-1` / `w-*` and made
+    // images overflow their cells. Sizing is now className-only; width and
+    // height are just intrinsic-dim hints for the PPTX runtime.
     const tree = createElement(
       Slide,
       { className: 'flex flex-col' },
@@ -89,12 +91,11 @@ describe('<Image> (media wrapper)', () => {
     const { ops } = renderToOps({ tree, template: TestTemplate, deckId: null, now: FIXED_NOW });
     const img = ops.find((o) => o.type === 'createImage');
     if (img?.type !== 'createImage') throw new Error('missing createImage op');
-    // Canvas is 960 × 540. With w-full and aspectRatio 16/9 the image
-    // should be ~960 wide and ~540 tall in points (modulo Yoga rounding).
+    // `w-full` gives 960pt; height is content-driven (Image has no text) so
+    // it stays 0 — the user must size it via className (`aspect-video`,
+    // explicit `h-*`, or paired width/height) if they want it to fill.
     const widthPt = img.rect.w / 12700;
-    const heightPt = img.rect.h / 12700;
     expect(widthPt).toBeCloseTo(960, 1);
-    expect(heightPt).toBeCloseTo(540, 1);
   });
 
   test('fit, opacity, rotate flow through to the op', () => {
@@ -110,6 +111,22 @@ describe('<Image> (media wrapper)', () => {
     expect(op.fit).toBe('cover');
     expect(op.opacity).toBe(0.5);
     expect(op.rotate).toBe(12);
+  });
+
+  test('width/height flow through as intrinsicWidth/intrinsicHeight on the op', () => {
+    // The PPTX runtime needs the intrinsic dims to compute aspect-correct
+    // sizing; the wrapper plumbs `width` / `height` to that slot.
+    const op = renderToImageOp(
+      createElement(Image, {
+        src: '/hero.jpg',
+        alt: 'hero',
+        width: 1920,
+        height: 1080,
+        fit: 'contain',
+      }),
+    );
+    expect(op.intrinsicWidth).toBe(1920);
+    expect(op.intrinsicHeight).toBe(1080);
   });
 
   test('omitting fit/opacity/rotate leaves them off the op (no defaults leak through)', () => {

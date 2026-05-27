@@ -45,9 +45,21 @@ export type SlideOp =
        *   - `'fill'` (default for back-compat): stretch to the rect.
        *
        * Maps to pptxgenjs's `sizing.type` in the PPTX runtime, and to CSS
-       * `object-fit` in the dev viewer.
+       * `object-fit` in the dev viewer. `'contain'` and `'cover'` only produce
+       * correct PPTX output when {@link intrinsicWidth} / {@link intrinsicHeight}
+       * are also set — pptxgenjs uses them to compute the aspect-correct crop.
+       * Without them, the runtime falls back to plain stretch.
        */
       fit?: 'contain' | 'cover' | 'fill';
+      /**
+       * Intrinsic pixel width of the underlying image. Used by the PPTX
+       * runtime to compute aspect-correct sizing for `fit: 'contain'` and
+       * `fit: 'cover'`. Has no effect in the dev viewer (CSS `object-fit`
+       * handles aspect correction directly from the browser-loaded image).
+       */
+      intrinsicWidth?: number;
+      /** Intrinsic pixel height of the underlying image. See {@link intrinsicWidth}. */
+      intrinsicHeight?: number;
       /**
        * Opacity, 0–1. Maps to pptxgenjs's `transparency` (inverted: pptxgenjs
        * uses 0–100 where 100 is fully transparent) and to CSS `opacity` in

@@ -332,11 +332,14 @@ Props:
 
 - `src` (required): URL or local path. The wrapper synthesizes the artifact provenance. Pass a fully-resolved `ImageRef` only when you have your own resolver.
 - `alt` (required): accessibility description, surfaced on the PPTX alt-text and the dev viewer's `<img alt>`. Use the empty string to opt out explicitly.
-- `width` / `height`: intrinsic pixel dimensions. When both are set the wrapper hands `aspectRatio` to Yoga so flex sizing keeps the image's shape.
-- `fit`: `'contain'` (letterbox), `'cover'` (crop), or `'fill'` (default, may distort). Maps to pptxgenjs `sizing` on export and CSS `object-fit` in the dev viewer.
-- `opacity`: `0`–`1`. Maps to pptxgenjs `transparency` and CSS `opacity`.
-- `rotate`: degrees clockwise. Maps to pptxgenjs `rotate` and CSS `transform: rotate(...)`.
-- `className` / `style`: same brand-locked Tailwind dialect as every other primitive. Sizing flows through Yoga.
+- `width` / `height`: intrinsic pixel dimensions. **Required for `fit: 'contain'`** — the PPTX runtime uses them to compute the aspect-correct inscribed rect. The dev viewer doesn't need them (CSS `object-fit` derives aspect from the loaded image).
+- `fit`:
+  - `'contain'` (recommended for photos): inscribes the image inside its laid-out rect with letterboxing. PPTX export: inscribed rect computed from `width` / `height`; dev viewer: CSS `object-fit: contain`.
+  - `'fill'` (default): stretches to fit, may distort. Same in PPTX and dev viewer.
+  - `'cover'`: works correctly in the dev viewer (CSS `object-fit: cover`). **On PPTX export it degrades to `'fill'`** with a console warning — pptxgenjs's `sizing` API has known issues that overflow neighbouring cells, and proper cover needs raw OOXML `srcRect` injection which we don't yet emit.
+- `opacity`: `0`–`1`. Maps to pptxgenjs `transparency` and CSS `opacity`. Works on both runtimes.
+- `rotate`: degrees clockwise. Maps to pptxgenjs `rotate` and CSS `transform: rotate(...)`. Works on both runtimes.
+- `className` / `style`: same brand-locked Tailwind dialect as every other primitive. Sizing flows through Yoga. The wrapper does **not** impose a Yoga `aspectRatio` from `width` / `height` — control the rendered shape via `aspect-square`, `aspect-video`, or paired `w-*` / `h-*`.
 
 The wrapper produces a primitive `<Image>` element under the hood, so it composes with `flex`, `flex-1`, `w-1/2`, `gap-*`, etc. without any special handling. **Supported formats: PNG, JPG, GIF.** SVG and animated GIFs only render reliably in Microsoft 365 / newest PowerPoint.
 

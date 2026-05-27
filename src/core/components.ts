@@ -266,11 +266,24 @@ export interface ImageProps {
    *   - `'fill'` (default): stretch to the rect.
    *
    * Maps to pptxgenjs's `sizing.type` on export and to CSS `object-fit` in
-   * the dev viewer. Most consumers reach for this via the friendlier
-   * wrapper exported from `@sanity-labs/slides/media`, but it is also
-   * available on the primitive for low-level use.
+   * the dev viewer. `'contain'` / `'cover'` need {@link intrinsicWidth} /
+   * {@link intrinsicHeight} to be set to produce correct PPTX output — the
+   * PPTX runtime falls back to stretch otherwise. Most consumers reach for
+   * this via the friendlier wrapper exported from
+   * `@sanity-labs/slides/media`, which exposes `width` / `height` props that
+   * populate both.
    */
   fit?: 'contain' | 'cover' | 'fill';
+
+  /**
+   * Intrinsic pixel width of the source image. Used by the PPTX runtime to
+   * compute aspect-correct sizing for `fit: 'contain'` / `fit: 'cover'`.
+   * No effect in the dev viewer.
+   */
+  intrinsicWidth?: number;
+
+  /** Intrinsic pixel height of the source image. See {@link intrinsicWidth}. */
+  intrinsicHeight?: number;
 
   /**
    * Opacity, between `0` (fully transparent) and `1` (fully opaque). Maps

@@ -2,9 +2,7 @@
 '@sanity-labs/slides': minor
 ---
 
-Add `@sanity-labs/slides/media` sub-path with a friendly `<Image>` wrapper. Takes a string `src` (no more manual `ArtifactRef` construction), requires `alt` at the type level, and exposes `width` / `height` (intrinsic dims drive `aspectRatio` so flex sizing preserves shape), `fit` (`'contain' | 'cover' | 'fill'`, mapping to pptxgenjs `sizing.type` on export and CSS `object-fit` in the dev viewer), `opacity`, and `rotate`.
-
-Wrapper is a plain React component that renders the primitive `<Image>` underneath, so it composes with the same className/Yoga/typography-role pipeline as every other primitive. The primitive at the root export gains the same `fit` / `opacity` / `rotate` props for low-level use, plumbed through the reconciler, the op-translator, the PPTX runtime, and the fake-runtime / dev viewer.
+Add `@sanity-labs/slides/media` sub-path with a friendly `<Image>` wrapper. Takes a string `src` (no more manual `ArtifactRef` construction), requires `alt` at the type level, and exposes `width` / `height` (intrinsic pixel dims used by the PPTX runtime for aspect-correct sizing), `fit` (`'contain' | 'cover' | 'fill'`), `opacity`, and `rotate`.
 
 ```tsx
 import { Image } from '@sanity-labs/slides/media';
@@ -14,9 +12,21 @@ import { Image } from '@sanity-labs/slides/media';
   alt="Team photo at the offsite"
   width={1920}
   height={1080}
-  fit="cover"
-  className="w-full"
+  fit="contain"
+  className="w-full aspect-video"
 />;
 ```
 
-`@sanity-labs/slides/media` is on the agent's base import allowlist so Tier-2 custom components can reach for it without per-template opt-in.
+Wrapper is a plain React component that renders the primitive `<Image>` underneath, so it composes with the same className / Yoga / typography-role pipeline as every other primitive.
+
+**Runtime behavior:**
+
+- `fit: 'contain'` + `width` / `height`: PPTX runtime computes an aspect-correct inscribed rect inside the laid-out box (no use of pptxgenjs's buggy `sizing` API). Dev viewer uses CSS `object-fit: contain`.
+- `fit: 'fill'` (default): stretches to fit on both runtimes.
+- `fit: 'cover'`: works in the dev viewer (CSS `object-fit: cover`); **degrades to `'fill'` on PPTX export with a console warning** until raw OOXML `srcRect` emission is added. Verified by opening exported decks in Keynote: pptxgenjs's `sizing.type='cover'` produces images that overflow their cells in PowerPoint and Keynote alike.
+- `opacity`: PPTX `transparency` (inverted) + CSS `opacity`.
+- `rotate`: PPTX `rotate` + CSS `transform: rotate(...)`. Verified end-to-end in Keynote.
+
+The primitive at the root export gains the same `fit` / `intrinsicWidth` / `intrinsicHeight` / `opacity` / `rotate` props for low-level use, plumbed through the reconciler, the op-translator, the PPTX runtime, and the fake-runtime / dev viewer.
+
+`@sanity-labs/slides/media` is on the agent's base import allowlist (`code-gen/imports-allowlist.ts`) so Tier-2 custom components can reach for it without per-template opt-in.

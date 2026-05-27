@@ -481,6 +481,8 @@ const walkLayoutImage = (node: LayoutNode, slideId: string, ctx: WalkContext): v
     rect: rectToEmu(node.rect),
     ...(props.altText !== undefined ? { altText: props.altText } : {}),
     ...(props.fit !== undefined ? { fit: props.fit } : {}),
+    ...(props.intrinsicWidth !== undefined ? { intrinsicWidth: props.intrinsicWidth } : {}),
+    ...(props.intrinsicHeight !== undefined ? { intrinsicHeight: props.intrinsicHeight } : {}),
     ...(props.opacity !== undefined ? { opacity: props.opacity } : {}),
     ...(props.rotate !== undefined ? { rotate: props.rotate } : {}),
   });
