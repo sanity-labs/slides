@@ -1,5 +1,9 @@
 @import 'tailwindcss';
-@source './**/*.{ts,tsx}';
+/* Match both the .ts/.tsx sources (when running from `src/dev/`) AND the
+   compiled .js files (when running from `dist/dev/`). Without `js`, the
+   published bundle would scan zero files and emit an empty stylesheet,
+   leaving the dev viewer's UI completely unstyled. */
+@source './**/*.{ts,tsx,js}';
 
 @theme {
   --color-paper: #ffffff;

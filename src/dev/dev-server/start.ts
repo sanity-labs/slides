@@ -24,9 +24,37 @@ export type DevServerHandle = {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CLIENT_ROOT = pathResolve(here, 'client');
-const SERVER_ONLY_STUB = pathResolve(here, 'server-only-stub.ts');
 
-const SERVER_ONLY_RE = /\/(core|react-pptx)\/(src|dist)\/(pptx-runtime|op-translator-pptx)\.[tj]s$/;
+/**
+ * The empty stub modules Vite swaps in for server-only imports.
+ *
+ * Two layouts:
+ *  - dev:       `src/dev/dev-server/*-stub.ts`
+ *  - published: `dist/dev/dev-server/*-stub.js`
+ *
+ * Pick whichever exists next to this file.
+ */
+const pickStub = (basename: string): string => {
+  const tsPath = pathResolve(here, `${basename}.ts`);
+  const jsPath = pathResolve(here, `${basename}.js`);
+  return existsSync(jsPath) ? jsPath : tsPath;
+};
+
+const SERVER_ONLY_STUB = pickStub('server-only-stub');
+const NODE_BUILTIN_STUB = pickStub('node-builtin-stub');
+
+/**
+ * Match the server-only modules that should be stubbed when the dev viewer
+ * imports `@sanity-labs/slides` from the browser. These files pull in
+ * Node-only deps (`@resvg/resvg-js`, `pptxgenjs`) that can't run in Vite's
+ * dependency-optimization step or in the browser.
+ *
+ * The current layout is `<pkg>/dist/core/{pptx-runtime,op-translator-pptx}.js`
+ * when published and `<pkg>/src/core/{pptx-runtime,op-translator-pptx}.ts`
+ * when running from a dev checkout. Match `core/<filename>` regardless of
+ * what comes before it.
+ */
+const SERVER_ONLY_RE = /(?:^|\/)core\/(?:pptx-runtime|op-translator-pptx)\.[tj]s$/;
 
 export const startDevServer = async (options: StartDevServerOptions): Promise<DevServerHandle> => {
   const startedAt = performance.now();
@@ -51,13 +79,13 @@ export const startDevServer = async (options: StartDevServerOptions): Promise<De
         configureServer(viteServer) {
           viteServer.middlewares.use('/api/export.pptx', async (_req, res) => {
             try {
-              const [mod, reconcilerMod, runtimeMod] = await Promise.all([
+              const [mod, slidesMod] = await Promise.all([
                 viteServer.ssrLoadModule(templatePath),
-                viteServer.ssrLoadModule('react-pptx/reconciler'),
-                viteServer.ssrLoadModule('react-pptx/pptx-runtime'),
+                // Single consolidated package since the workspace collapse.
+                // The reconciler and PPTX runtime both live at the root.
+                viteServer.ssrLoadModule('@sanity-labs/slides'),
               ]);
-              const { renderToOps } = reconcilerMod;
-              const { PptxSlidesRuntime } = runtimeMod;
+              const { renderToOps, PptxSlidesRuntime } = slidesMod;
               const template = mod[templateExportName];
               if (!template) throw new Error('Template export not found');
               const tree = template.preview ? template.preview() : null;
@@ -83,8 +111,29 @@ export const startDevServer = async (options: StartDevServerOptions): Promise<De
       },
 
       {
+        // Browser-only stubs for Node-only packages and built-ins the dev
+        // viewer can't load. SSR is exempt so the export endpoint can still
+        // load the real pptxgenjs / resvg / node:fs to generate the .pptx.
+        //
+        // `resolveId` redirects bare imports BEFORE Vite's esbuild dep
+        // scanner sees them — critical because the scanner runs ahead of
+        // the `load` hook and would otherwise crash on @resvg's native .node
+        // binary or node:fs externalization.
         name: 'slides-dev:stub-server-only',
         enforce: 'pre' as const,
+        resolveId(source, _importer, options) {
+          if (options?.ssr) return null;
+          if (source === '@resvg/resvg-js' || source === 'pptxgenjs') return SERVER_ONLY_STUB;
+          if (
+            source === 'node:fs' ||
+            source === 'node:path' ||
+            source === 'node:url' ||
+            source === 'node:module'
+          ) {
+            return NODE_BUILTIN_STUB;
+          }
+          return null;
+        },
         load(id, options) {
           if (options?.ssr) return null;
           const cleanId = id.split('?')[0] ?? '';
@@ -107,7 +156,24 @@ export const startDevServer = async (options: StartDevServerOptions): Promise<De
       },
     ],
     optimizeDeps: {
-      include: ['react', 'react-dom', 'react-dom/client'],
+      // Force these into a single pre-bundled chunk per package. `lucide-react`
+      // in particular publishes each icon as a separate ESM file; in dev mode
+      // the browser would request hundreds of individual icon URLs, and any
+      // user with an ad blocker that matches on filename ("fingerprint.js",
+      // "crypto.js", etc.) breaks the whole tree because the import never
+      // resolves. Pre-bundling collapses them into one URL.
+      include: ['react', 'react-dom', 'react-dom/client', 'lucide-react', 'react-zoom-pan-pinch'],
+      // Skip these in pre-bundling so the esbuild scanner doesn't try to
+      // follow them. The `slides-dev:stub-server-only` plugin below catches
+      // them when they're loaded on demand and substitutes a browser-safe
+      // stub. Without `exclude`, the scanner runs ahead of plugins and dies
+      // on @resvg's native `.node` binary / pptxgenjs's Node-only deps.
+      exclude: ['@resvg/resvg-js', 'pptxgenjs'],
+      // `yoga-layout` (used by the reconciler) uses top-level `await` in its
+      // ESM build. esbuild's default target (chrome87) doesn't support it,
+      // which crashes Vite's pre-bundling step. Bump to esnext so it goes
+      // through verbatim.
+      esbuildOptions: { target: 'esnext' },
     },
   });
 
