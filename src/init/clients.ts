@@ -123,13 +123,19 @@ export const removeServerFromClient = (params: {
 /**
  * Build the MCP server entry that points at the slidesctl binary for a
  * given template entrypoint + output dir.
+ *
+ * Uses an absolute path to the current Node binary instead of `node`.
+ * GUI apps like Claude Desktop don't inherit the user's shell PATH, so a
+ * bare `node` command can resolve to whatever — frequently an ancient
+ * system Node that pre-dates top-level await and crashes immediately
+ * with `SyntaxError: Unexpected reserved word`.
  */
 export const buildServerEntry = (params: {
   readonly slidesctlCliPath: string;
   readonly templateEntrypoint: string;
   readonly outputDir: string;
 }): MCPServerEntry => ({
-  command: 'node',
+  command: process.execPath,
   args: [
     params.slidesctlCliPath,
     'serve',
