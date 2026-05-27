@@ -65,6 +65,7 @@
     "changeset:publish": "pnpm run build && changeset publish"
   },
   "dependencies": {
+    "@inquirer/prompts": "^8.5.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@oclif/core": "^4.0.0",
     "@resvg/resvg-js": "^2.6.2",
