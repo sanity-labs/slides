@@ -1,5 +1,11 @@
 # @sanity-labs/slides
 
+## 0.5.4
+
+### Patch Changes
+
+- [#20](https://github.com/sanity-labs/slides/pull/20) [`5c28ce2`](https://github.com/sanity-labs/slides/commit/5c28ce2d777c747169f4f0c2dcf982acdd8282fc) Thanks [@RostiMelk](https://github.com/RostiMelk)! - Fix `<Box rect={...} className="flex flex-row gap-4">` silently dropping the className for layout. `flex-row`, `gap-*`, `pt-*`, `items-*`, `justify-*`, and other layout classes were ignored on rect-positioned boxes, even though the `layout.ts` comment promised "a rect-positioned card can use flex internally." Position and size still come from the rect; everything else now flows from className/style so a rect-positioned card lays its children out the way the agent asked.
+
 ## 0.5.3
 
 ### Patch Changes
