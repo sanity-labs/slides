@@ -4,6 +4,10 @@
  *
  * Commands (each in its own file under `src/commands/`):
  *
+ *   init          Install a slides MCP server entry (interactive wizard).
+ *   status        Print installed servers and which MCP clients have them wired up.
+ *   use           Update an installed server (refresh template, swap source, change output).
+ *   remove        Uninstall a slides MCP server entry.
  *   serve         Start an MCP server over stdio.
  *   generate      Read { title, slides } JSON from stdin, write a .pptx file.
  *   list          Print the slide types a template exposes.
