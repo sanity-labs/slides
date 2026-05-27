@@ -13,20 +13,23 @@ import { uninstallServer } from '../init/install.js';
 
 export default class Remove extends Command {
   static override description =
-    "Uninstall a slides MCP server entry. Removes it from every MCP client config and from slidesctl's state.";
+    'Remove a template you previously set up. Claude will no longer see it after the next restart.';
 
   static override examples = [
-    '<%= config.bin %> <%= command.id %> sanity-slides',
-    '<%= config.bin %> <%= command.id %> sanity-slides --purge',
+    '<%= config.bin %> <%= command.id %> slides-template',
+    '<%= config.bin %> <%= command.id %> slides-template --purge',
   ];
 
   static override args = {
-    name: Args.string({ description: 'Server name to remove.', required: true }),
+    name: Args.string({
+      description: 'The template label to remove (see `slidesctl status`).',
+      required: true,
+    }),
   };
 
   static override flags = {
     purge: Flags.boolean({
-      description: 'Also delete the cached template directory on disk.',
+      description: 'Also delete the downloaded template files from your computer.',
       default: false,
     }),
   };
@@ -35,24 +38,26 @@ export default class Remove extends Command {
     const { args, flags } = await this.parse(Remove);
     const server = uninstallServer({ name: args.name });
     if (!server) {
-      this.error(`No server named "${args.name}" is installed.`, { exit: 2 });
+      this.error(`There\u2019s no template called "${args.name}" set up.`, { exit: 2 });
     }
 
-    this.log(`Removed "${args.name}" from ${server.clients.length} MCP client(s).`);
+    const appCount = server.clients.length;
+    const appWord = appCount === 1 ? 'app' : 'apps';
+    this.log(`Removed "${args.name}" from ${appCount} ${appWord}.`);
 
     if (server.cacheDir) {
       if (flags.purge) {
         if (existsSync(server.cacheDir)) {
           rmSync(server.cacheDir, { recursive: true, force: true });
-          this.log(`Deleted cache: ${server.cacheDir}`);
+          this.log(`Deleted downloaded files at ${server.cacheDir}.`);
         }
       } else {
-        this.log(`Cached template kept at: ${server.cacheDir}`);
-        this.log('(Pass --purge to delete it.)');
+        this.log(`Downloaded files kept at ${server.cacheDir}.`);
+        this.log('(Run with --purge to delete them too.)');
       }
     }
 
     this.log('');
-    this.log('Restart your MCP client to drop the server.');
+    this.log('Restart Claude to drop this template.');
   }
 }

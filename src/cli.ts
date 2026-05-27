@@ -6,7 +6,8 @@
  *
  *   init          Install a slides MCP server entry (interactive wizard).
  *   status        Print installed servers and which MCP clients have them wired up.
- *   use           Update an installed server (refresh template, swap source, change output).
+ *   update        Refresh installed templates to their latest commit.
+ *   use           Change an installed server's source or output directory.
  *   remove        Uninstall a slides MCP server entry.
  *   serve         Start an MCP server over stdio.
  *   generate      Read { title, slides } JSON from stdin, write a .pptx file.
