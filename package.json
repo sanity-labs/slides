@@ -1,6 +1,6 @@
 {
   "name": "@sanity-labs/slides",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Brand-locked PowerPoint generation for LLMs. Write a slide template in React; Claude (or any MCP client) writes the deck through the bundled MCP server without drifting on fonts, colors, or layout.",
   "type": "module",
   "license": "MIT",
