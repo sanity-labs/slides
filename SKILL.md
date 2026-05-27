@@ -38,7 +38,7 @@ Most decks mix the two: a few prebuilt slide types for the parts that fit, custo
 
 - Tailwind classes outside the allowlist are rejected with `UnknownClassError`. Stock Tailwind (`bg-pink-500`, `text-[20px]`, `hover:…`, responsive variants) is not allowed. Call `slides_list({ detail: "detailed" })` to see the template's actual tokens.
 - Component names must come from `slides_list`. To add a new slide type use `slides_add_component`; PascalCase only.
-- Custom components may only import `@sanity-labs/slides`, `react`, and `zod` — plus any **extras the active template opts into** via `additionalImportAllowlist`. Read `slides_list({ detail: "detailed" })`; its `additionalImports` field lists the template-specific extras (typically a brand-chrome helper package like `@sanity-labs/slides-template`). Other imports throw `add_component_failed` before any file is written.
+- Custom components may only import `@sanity-labs/slides`, `@sanity-labs/slides/media`, `react`, and `zod` — plus any **extras the active template opts into** via `additionalImportAllowlist`. Read `slides_list({ detail: "detailed" })`; its `additionalImports` field lists the template-specific extras (typically a brand-chrome helper package like `@sanity-labs/slides-template`). Other imports throw `add_component_failed` before any file is written.
 - **Slide chrome is automatic.** Every `<Slide>` is automatically wrapped with the template's layout component — background, logo, footer, safe-zone padding all get applied without you doing anything. Your custom components only declare their content; the framework guarantees visual consistency with the template's curated slides. Pass `layoutProps={{ ... }}` on `<Slide>` for per-instance variation (e.g. a brand-color background, a different footer text); use `noLayout` to opt out entirely for one-off full-bleed slides.
 - The `<generated-imports>` / `<generated-components>` anchors in a deck's `src/index.ts` are owned by the code-gen tools — hand edits get clobbered.
 
@@ -306,6 +306,42 @@ When you write `bg-<X>` on a Box, immediately pick the text color that contrasts
 - **Grid of cards.** Outer column → inner `flex-row` with `flex-1` children. Each card is itself a column with `flex-col gap-2 p-6 bg-<token>`.
 - **Two-column comparison.** `<Slide className="flex flex-row p-12 gap-12">` with two `flex-1` children.
 - **Hero + caption.** Column with one large `flex-1` Box for the headline and a small `flex-none` Box for the caption underneath.
+
+## Images via `@sanity-labs/slides/media`
+
+For anything richer than the brand-asset overlays in the template, import the friendly `<Image>` from `@sanity-labs/slides/media`:
+
+```tsx
+import { Image } from '@sanity-labs/slides/media';
+
+<Slide className="flex flex-col p-12 gap-6">
+  <Box className="text-role-eyebrow">CASE STUDY</Box>
+  <Box className="text-role-title">A 2x increase in throughput</Box>
+  <Image
+    src="/images/dashboard.png"
+    alt="Production dashboard showing the throughput gain"
+    width={1920}
+    height={1080}
+    fit="contain"
+    className="w-full flex-1"
+  />
+</Slide>;
+```
+
+Props:
+
+- `src` (required): URL or local path. The wrapper synthesizes the artifact provenance. Pass a fully-resolved `ImageRef` only when you have your own resolver.
+- `alt` (required): accessibility description, surfaced on the PPTX alt-text and the dev viewer's `<img alt>`. Use the empty string to opt out explicitly.
+- `width` / `height`: intrinsic pixel dimensions. **Required for `fit: 'contain'`** — the PPTX runtime uses them to compute the aspect-correct inscribed rect. The dev viewer doesn't need them (CSS `object-fit` derives aspect from the loaded image).
+- `fit`:
+  - `'contain'` (recommended for photos): inscribes the image inside its laid-out rect with letterboxing. PPTX export: inscribed rect computed from `width` / `height`; dev viewer: CSS `object-fit: contain`.
+  - `'fill'` (default): stretches to fit, may distort. Same in PPTX and dev viewer.
+  - `'cover'`: works correctly in the dev viewer (CSS `object-fit: cover`). **On PPTX export it degrades to `'fill'`** with a console warning — pptxgenjs's `sizing` API has known issues that overflow neighbouring cells, and proper cover needs raw OOXML `srcRect` injection which we don't yet emit.
+- `opacity`: `0`–`1`. Maps to pptxgenjs `transparency` and CSS `opacity`. Works on both runtimes.
+- `rotate`: degrees clockwise. Maps to pptxgenjs `rotate` and CSS `transform: rotate(...)`. Works on both runtimes.
+- `className` / `style`: same brand-locked Tailwind dialect as every other primitive. Sizing flows through Yoga. The wrapper does **not** impose a Yoga `aspectRatio` from `width` / `height` — control the rendered shape via `aspect-square`, `aspect-video`, or paired `w-*` / `h-*`.
+
+The wrapper produces a primitive `<Image>` element under the hood, so it composes with `flex`, `flex-1`, `w-1/2`, `gap-*`, etc. without any special handling. **Supported formats: PNG, JPG, GIF.** SVG and animated GIFs only render reliably in Microsoft 365 / newest PowerPoint.
 
 ## Escape hatches
 

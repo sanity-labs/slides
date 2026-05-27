@@ -26,6 +26,7 @@
 /** Packages every agent component may import, regardless of template. */
 const BASE_ALLOWED = Object.freeze([
   '@sanity-labs/slides',
+  '@sanity-labs/slides/media',
   'react',
   'react/jsx-runtime',
   'react/jsx-dev-runtime',

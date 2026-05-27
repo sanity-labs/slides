@@ -32,6 +32,7 @@
     ".": "./src/index.ts",
     "./mcp": "./src/mcp/index.ts",
     "./dev": "./src/dev/index.ts",
+    "./media": "./src/media/index.ts",
     "./scaffold": "./src/scaffold/index.ts",
     "./skill": "./SKILL.md",
     "./package.json": "./package.json"
@@ -157,6 +158,10 @@
       "./dev": {
         "types": "./dist/dev/index.d.ts",
         "import": "./dist/dev/index.js"
+      },
+      "./media": {
+        "types": "./dist/media/index.d.ts",
+        "import": "./dist/media/index.js"
       },
       "./scaffold": {
         "types": "./dist/scaffold/index.d.ts",

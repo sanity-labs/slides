@@ -99,6 +99,15 @@ export interface PptxImage {
   readonly position: PptxPosition;
   readonly url: string;
   readonly altText?: string;
+  /** Object-fit semantics. Maps to pptxgenjs `sizing.type`. */
+  readonly fit?: 'contain' | 'cover' | 'fill';
+  /** Intrinsic pixel dimensions used for `fit` aspect-correction math. */
+  readonly intrinsicWidth?: number;
+  readonly intrinsicHeight?: number;
+  /** 0–1 opacity; pptxgenjs takes the inverse on export. */
+  readonly opacity?: number;
+  /** Rotation in degrees, clockwise. */
+  readonly rotate?: number;
 }
 
 /** Position in inches — pptxgenjs's native unit. */
@@ -239,6 +248,11 @@ export const translateOpsToPptx = (
           position: emuRectToInches(op.rect),
           url: op.url,
           ...(op.altText !== undefined ? { altText: op.altText } : {}),
+          ...(op.fit !== undefined ? { fit: op.fit } : {}),
+          ...(op.intrinsicWidth !== undefined ? { intrinsicWidth: op.intrinsicWidth } : {}),
+          ...(op.intrinsicHeight !== undefined ? { intrinsicHeight: op.intrinsicHeight } : {}),
+          ...(op.opacity !== undefined ? { opacity: op.opacity } : {}),
+          ...(op.rotate !== undefined ? { rotate: op.rotate } : {}),
         };
         objectIndex.set(op.imageId, objects.length);
         objects.push(image);

@@ -208,9 +208,10 @@ const LIST_OUTPUT_SHAPE = {
     .describe(
       'Extra package specifiers the active template permits in agent-authored ' +
         'Tier-2 components, on top of the base brand-lock (@sanity-labs/slides, ' +
-        "react, zod). Use them to reach for the template's own chrome helpers " +
-        '(e.g. a `<BrandSlide>` wrapper) so custom slides match the curated ones ' +
-        'visually. Only present when detail="detailed" and the template opts in.',
+        '@sanity-labs/slides/media, react, zod). Use them to reach for the ' +
+        "template's own chrome helpers (e.g. a `<BrandSlide>` wrapper) so custom " +
+        'slides match the curated ones visually. Only present when ' +
+        'detail="detailed" and the template opts in.',
     ),
 };
 
@@ -717,8 +718,10 @@ const registerCodeGenTools = (mcp: McpServer, state: ServerState): void => {
       description:
         'Write a new TSX slide component into the deck and register it. ' +
         'The source must export `<Name>` (React component) and `<Name>Schema` (Zod). ' +
-        'Imports are restricted to @sanity-labs/slides, react, and zod; any other ' +
-        'import causes immediate rejection (no file is written). ' +
+        'Imports are restricted to @sanity-labs/slides, @sanity-labs/slides/media, ' +
+        'react, and zod (plus any extras the active template opts into via ' +
+        '`additionalImportAllowlist`); any other import causes immediate ' +
+        'rejection (no file is written). ' +
         'On success the active template is reloaded so the new type is visible to ' +
         'slides_list, slides_validate, and slides_create. ' +
         'If the typecheck fails, the file is kept on disk and the diagnostics are ' +

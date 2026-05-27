@@ -305,10 +305,25 @@ const emitRectangle = (slide: PptxGenJS.Slide, obj: PptxRectangle): void => {
 };
 
 const emitImage = (slide: PptxGenJS.Slide, obj: PptxImage): void => {
+  // Defaults: fill the user's position rect with the image. For `fit:
+  // 'contain'` with known intrinsic dims, we compute an inscribed rect
+  // inside `position` and place the image there — letterboxing falls out
+  // for free without going through pptxgenjs's `sizing` API (which has
+  // known bugs that cause the image to overflow neighbouring cells in
+  // PowerPoint and Keynote alike).
+  const placement = computePlacement(obj);
   const opts: PptxGenJS.ImageProps = {
-    ...positionToPptx(obj.position),
+    ...placement,
     ...(obj.altText !== undefined ? { altText: obj.altText } : {}),
+    ...(obj.rotate !== undefined ? { rotate: obj.rotate } : {}),
   };
+  if (obj.opacity !== undefined) {
+    // pptxgenjs takes `transparency` as 0–100 where 100 is fully transparent;
+    // we expose CSS-style `opacity` (0–1 with 1 fully opaque) on the op and
+    // invert here.
+    const clamped = Math.max(0, Math.min(1, obj.opacity));
+    opts.transparency = Math.round((1 - clamped) * 100);
+  }
   const source = imageSourceForPptx(obj.url);
   if (source.kind === 'data') {
     opts.data = source.value;
@@ -316,6 +331,63 @@ const emitImage = (slide: PptxGenJS.Slide, obj: PptxImage): void => {
     opts.path = source.value;
   }
   slide.addImage(opts);
+};
+
+/**
+ * Resolve the addImage placement based on `fit` and the intrinsic dimensions.
+ *
+ * - `'contain'` + known intrinsic dims: inscribed rect, image preserves aspect.
+ * - `'cover'`: stretch + warning. Proper cover needs raw `srcRect` injection
+ *   that pptxgenjs doesn't expose; tracked as a follow-up.
+ * - `'fill'` or no fit: position rect as-is.
+ */
+const computePlacement = (obj: PptxImage): { x: number; y: number; w: number; h: number } => {
+  const position = positionToPptx(obj.position);
+  const hasIntrinsic =
+    obj.intrinsicWidth !== undefined &&
+    obj.intrinsicHeight !== undefined &&
+    obj.intrinsicWidth > 0 &&
+    obj.intrinsicHeight > 0;
+  if (obj.fit === 'contain' && hasIntrinsic) {
+    return inscribeRect(position, obj.intrinsicWidth! / obj.intrinsicHeight!);
+  }
+  if (obj.fit === 'cover') {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[@sanity-labs/slides] <Image fit="cover"> is not yet supported on PPTX ' +
+        'export; falling back to stretch. Use fit="contain" with width/height ' +
+        'for aspect-correct rendering.',
+    );
+  }
+  return position;
+};
+
+/**
+ * Center an aspect-preserving rect inside `outer` so the inscribed rect's
+ * aspect ratio matches `aspect` (w/h) and both width and height fit.
+ */
+const inscribeRect = (
+  outer: { x: number; y: number; w: number; h: number },
+  aspect: number,
+): { x: number; y: number; w: number; h: number } => {
+  const outerAspect = outer.w / outer.h;
+  let w: number;
+  let h: number;
+  if (aspect > outerAspect) {
+    // Image is wider than the box — width-bound, vertical letterbox.
+    w = outer.w;
+    h = outer.w / aspect;
+  } else {
+    // Image is taller than the box — height-bound, horizontal letterbox.
+    h = outer.h;
+    w = outer.h * aspect;
+  }
+  return {
+    x: outer.x + (outer.w - w) / 2,
+    y: outer.y + (outer.h - h) / 2,
+    w,
+    h,
+  };
 };
 
 type PptxImageSource =

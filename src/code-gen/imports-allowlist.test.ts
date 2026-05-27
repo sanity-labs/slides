@@ -13,6 +13,12 @@ describe('imports-allowlist', () => {
     expect(() => assertAllowedImports(ok)).not.toThrow();
   });
 
+  test('allows @sanity-labs/slides/media (friendly Image wrapper sub-path)', () => {
+    const ok = `import { Image } from '@sanity-labs/slides/media';`;
+    expect(findDisallowedImports(ok)).toEqual([]);
+    expect(() => assertAllowedImports(ok)).not.toThrow();
+  });
+
   test('rejects node built-ins', () => {
     const bad = `import { readFileSync } from 'node:fs';`;
     expect(findDisallowedImports(bad)).toEqual(['node:fs']);
