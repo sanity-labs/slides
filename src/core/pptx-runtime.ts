@@ -305,10 +305,25 @@ const emitRectangle = (slide: PptxGenJS.Slide, obj: PptxRectangle): void => {
 };
 
 const emitImage = (slide: PptxGenJS.Slide, obj: PptxImage): void => {
+  const position = positionToPptx(obj.position);
   const opts: PptxGenJS.ImageProps = {
-    ...positionToPptx(obj.position),
+    ...position,
     ...(obj.altText !== undefined ? { altText: obj.altText } : {}),
+    ...(obj.rotate !== undefined ? { rotate: obj.rotate } : {}),
   };
+  if (obj.opacity !== undefined) {
+    // pptxgenjs takes `transparency` as 0–100 where 100 is fully transparent;
+    // we expose CSS-style `opacity` (0–1 with 1 fully opaque) on the op and
+    // invert here.
+    const clamped = Math.max(0, Math.min(1, obj.opacity));
+    opts.transparency = Math.round((1 - clamped) * 100);
+  }
+  if (obj.fit !== undefined && obj.fit !== 'fill') {
+    // pptxgenjs honours `sizing.type` of 'contain' | 'cover' | 'crop'. We map
+    // 1:1 except 'fill' (the default stretch behaviour) which we express by
+    // simply not setting `sizing`.
+    opts.sizing = { type: obj.fit, w: position.w, h: position.h };
+  }
   const source = imageSourceForPptx(obj.url);
   if (source.kind === 'data') {
     opts.data = source.value;

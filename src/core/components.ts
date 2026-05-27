@@ -256,6 +256,34 @@ export interface ImageProps {
    * Carried through to the `createImage` op's `altText` field.
    */
   altText?: string;
+
+  /**
+   * How the image fits inside its computed rect when the intrinsic aspect
+   * ratio doesn't match. Same semantics as CSS `object-fit`.
+   *
+   *   - `'contain'`: scale to fit, letterboxed if needed.
+   *   - `'cover'`: scale to fill, cropped if needed.
+   *   - `'fill'` (default): stretch to the rect.
+   *
+   * Maps to pptxgenjs's `sizing.type` on export and to CSS `object-fit` in
+   * the dev viewer. Most consumers reach for this via the friendlier
+   * wrapper exported from `@sanity-labs/slides/media`, but it is also
+   * available on the primitive for low-level use.
+   */
+  fit?: 'contain' | 'cover' | 'fill';
+
+  /**
+   * Opacity, between `0` (fully transparent) and `1` (fully opaque). Maps
+   * to pptxgenjs's `transparency` on export and to CSS `opacity` in the
+   * dev viewer.
+   */
+  opacity?: number;
+
+  /**
+   * Rotation in degrees clockwise. Maps to pptxgenjs's `rotate` on export
+   * and to a CSS `transform: rotate(...)` in the dev viewer.
+   */
+  rotate?: number;
 }
 
 /**

@@ -7,7 +7,7 @@
 
 A template is a React project. Each slide type is a component + a Zod schema. The bundled MCP server reads your template and exposes it to Claude (or any MCP client) as auto-derived tools. The LLM can pick slide types and fill props, but it cannot pick fonts, colors, or layout — those are locked in the template.
 
-One package on npm. Four subpath exports. One CLI bin.
+One package on npm. Five subpath exports. One CLI bin.
 
 ---
 
@@ -150,6 +150,7 @@ One npm package, four import surfaces:
 | ------------------------------ | ----------------------------------------------------------------------- |
 | `@sanity-labs/slides`          | Renderer + `Template` type + `Slide`/`Box`/`Text` primitives + runtime. |
 | `@sanity-labs/slides/mcp`      | `createSlideServer`, `renderSlides` — programmatic MCP API.             |
+| `@sanity-labs/slides/media`    | Friendly `<Image>` wrapper (string `src`, `fit`, `opacity`, `rotate`).  |
 | `@sanity-labs/slides/dev`      | Dev-viewer building blocks (`composeDeck`, `DeckViewer`).               |
 | `@sanity-labs/slides/scaffold` | `scaffoldTemplate({ target, name })` — programmatic scaffold API.       |
 | `@sanity-labs/slides/skill`    | The bundled `SKILL.md` Markdown file.                                   |

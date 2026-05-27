@@ -167,6 +167,28 @@ describe('translateOpsToPptx', () => {
     }
   });
 
+  it('createImage carries fit, opacity, rotate through to the image object', () => {
+    const ops: SlideOp[] = [
+      { type: 'createSlide', slideId: 's' },
+      {
+        type: 'createImage',
+        slideId: 's',
+        imageId: 'img_1',
+        url: 'https://example.com/x.png',
+        rect: { x: 0, y: 0, w: EMU_PER_INCH, h: EMU_PER_INCH },
+        fit: 'cover',
+        opacity: 0.5,
+        rotate: 90,
+      },
+    ];
+    const batch = translateOpsToPptx(ops);
+    const obj = batch.objects[0];
+    if (obj?.kind !== 'image') throw new Error('expected image');
+    expect(obj.fit).toBe('cover');
+    expect(obj.opacity).toBe(0.5);
+    expect(obj.rotate).toBe(90);
+  });
+
   it('updateParagraphStyle merges paragraph style on text object', () => {
     const ops: SlideOp[] = [
       { type: 'createSlide', slideId: 's' },

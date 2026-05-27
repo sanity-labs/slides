@@ -69,6 +69,12 @@ export interface FakeShape {
   imageUrl?: string;
   /** For images, the alt-text. */
   altText?: string;
+  /** For images, `object-fit` semantics. `undefined` falls back to `'fill'`. */
+  imageFit?: 'contain' | 'cover' | 'fill';
+  /** For images, opacity 0–1. */
+  imageOpacity?: number;
+  /** For images, rotation in degrees clockwise. */
+  imageRotate?: number;
 }
 
 /** A single slide in the fake deck. */
@@ -261,6 +267,9 @@ export class FakeSlidesRuntime implements SlidesRuntime {
           shapeProperties: {},
           imageUrl: op.url,
           ...(op.altText !== undefined ? { altText: op.altText } : {}),
+          ...(op.fit !== undefined ? { imageFit: op.fit } : {}),
+          ...(op.opacity !== undefined ? { imageOpacity: op.opacity } : {}),
+          ...(op.rotate !== undefined ? { imageRotate: op.rotate } : {}),
         };
         deck.shapes.set(op.imageId, image);
         slide.shapeIds.push(op.imageId);

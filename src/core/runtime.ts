@@ -36,6 +36,29 @@ export type SlideOp =
       url: string;
       rect: EmuRect;
       altText?: string;
+      /**
+       * How the image fits inside the rect when its intrinsic aspect ratio
+       * doesn't match the rect's. Mirrors CSS `object-fit`.
+       *
+       *   - `'contain'`: scale to fit, letterboxed if needed.
+       *   - `'cover'`: scale to fill, cropped if needed.
+       *   - `'fill'` (default for back-compat): stretch to the rect.
+       *
+       * Maps to pptxgenjs's `sizing.type` in the PPTX runtime, and to CSS
+       * `object-fit` in the dev viewer.
+       */
+      fit?: 'contain' | 'cover' | 'fill';
+      /**
+       * Opacity, 0–1. Maps to pptxgenjs's `transparency` (inverted: pptxgenjs
+       * uses 0–100 where 100 is fully transparent) and to CSS `opacity` in
+       * the dev viewer.
+       */
+      opacity?: number;
+      /**
+       * Rotation in degrees clockwise. Maps to pptxgenjs's `rotate` and to
+       * a CSS `transform: rotate(...)` in the dev viewer.
+       */
+      rotate?: number;
     }
   | { type: 'updateShapeProperties'; objectId: string; properties: ShapeProperties };
 

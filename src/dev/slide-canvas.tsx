@@ -52,11 +52,19 @@ const Shape = ({ shape }: { shape: FakeShape }): ReactElement | null => {
   };
 
   if (shape.imageUrl) {
+    const objectFit: CSSProperties['objectFit'] = shape.imageFit ?? 'fill';
+    const imageStyle: CSSProperties = {
+      ...baseStyle,
+      objectFit,
+      display: 'block',
+      ...(shape.imageOpacity !== undefined ? { opacity: shape.imageOpacity } : {}),
+      ...(shape.imageRotate !== undefined ? { transform: `rotate(${shape.imageRotate}deg)` } : {}),
+    };
     return (
       <img
         src={shape.imageUrl}
         alt={shape.altText ?? ''}
-        style={{ ...baseStyle, objectFit: 'fill', display: 'block' }}
+        style={imageStyle}
         data-object-id={shape.objectId}
       />
     );

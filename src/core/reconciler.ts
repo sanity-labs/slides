@@ -480,6 +480,9 @@ const walkLayoutImage = (node: LayoutNode, slideId: string, ctx: WalkContext): v
     url: props.image.url,
     rect: rectToEmu(node.rect),
     ...(props.altText !== undefined ? { altText: props.altText } : {}),
+    ...(props.fit !== undefined ? { fit: props.fit } : {}),
+    ...(props.opacity !== undefined ? { opacity: props.opacity } : {}),
+    ...(props.rotate !== undefined ? { rotate: props.rotate } : {}),
   });
 
   // Dedup by identifier: a logo or texture referenced from many slides should
