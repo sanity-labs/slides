@@ -16,25 +16,30 @@ import { readState, type TemplateSource } from '../init/state.js';
 
 export default class Use extends Command {
   static override description =
-    'Update an installed slides server — refresh its template, swap to a new source, or change its output dir.';
+    "Change a template's settings — switch it to a different source, or change where Claude saves the decks.";
 
   static override examples = [
-    '<%= config.bin %> <%= command.id %> sanity-slides',
-    '<%= config.bin %> <%= command.id %> sanity-slides --source sanity-labs/slides-template#next',
-    '<%= config.bin %> <%= command.id %> sanity-slides --output ~/Documents/decks',
+    '<%= config.bin %> <%= command.id %> slides-template --source sanity-labs/slides-template#next',
+    '<%= config.bin %> <%= command.id %> slides-template --output ~/Documents/decks',
   ];
 
   static override args = {
-    name: Args.string({ description: 'Server name to update.', required: true }),
+    name: Args.string({
+      description: 'The template label (see `slidesctl status` for what you\u2019ve set up).',
+      required: true,
+    }),
   };
 
   static override flags = {
     source: Flags.string({
       char: 's',
       description:
-        'New template source (github `owner/repo[#ref]` or local path). Omit to refresh in place.',
+        'Switch to a different template source. A GitHub link (`owner/repo` or URL) or a folder on your computer.',
     }),
-    output: Flags.string({ char: 'o', description: 'New output directory.' }),
+    output: Flags.string({
+      char: 'o',
+      description: 'Change where Claude saves the decks it makes.',
+    }),
   };
 
   override async run(): Promise<void> {
@@ -43,7 +48,7 @@ export default class Use extends Command {
     const existing = state.servers[args.name];
     if (!existing) {
       this.error(
-        `No server named "${args.name}". Run \`slidesctl status\` to list installed servers, or \`slidesctl init\` to add one.`,
+        `No template called "${args.name}". Run \`slidesctl status\` to see what\u2019s set up, or \`slidesctl init\` to add a new one.`,
         { exit: 2 },
       );
     }
@@ -51,10 +56,9 @@ export default class Use extends Command {
     const source = flags.source ? parseSource(flags.source, this) : existing.source;
     const outputDir = flags.output ?? existing.outputDir;
 
-    this.log(`Updating ${args.name}…`);
-    this.log(`  source:  ${formatSource(source)}`);
-    this.log(`  output:  ${outputDir}`);
-    this.log(`  clients: ${existing.clients.join(', ')}`);
+    this.log(`Updating "${args.name}"…`);
+    this.log(`  Template:    ${formatSource(source)}`);
+    this.log(`  Decks saved: ${outputDir}`);
     this.log('');
 
     const result = installServer({
@@ -71,7 +75,7 @@ export default class Use extends Command {
     if (!result.ok) this.error(result.message, { exit: 1 });
 
     this.log('');
-    this.log(`\u2713 Updated "${args.name}". Restart your MCP client to pick up changes.`);
+    this.log(`\u2713 Done. Restart Claude to pick up the changes.`);
   }
 }
 
@@ -85,5 +89,8 @@ const parseSource = (spec: string, cmd: Command): TemplateSource => {
   if (spec.startsWith('.') || spec.startsWith('/') || spec.startsWith('~')) {
     return { kind: 'local', path: spec.replace(/^~/, homedir()) };
   }
-  cmd.error(`Could not parse "${spec}" as a GitHub repo or local path.`, { exit: 2 });
+  cmd.error(
+    `Hmm, "${spec}" doesn\u2019t look like a GitHub repo or a folder path. Try something like \`sanity-labs/slides-template\` or \`./my-template\`.`,
+    { exit: 2 },
+  );
 };
