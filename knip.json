@@ -11,6 +11,7 @@
     "src/dev/bin/slides-dev.ts",
     "src/dev/dev-server/client/entry.tsx",
     "src/dev/dev-server/server-only-stub.ts",
+    "src/dev/dev-server/node-builtin-stub.ts",
     "src/__tests__/fixtures/test-template/index.tsx"
   ],
   "ignore": ["src/scaffold/template-base/**", "src/scaffold/deck-base/**"],
