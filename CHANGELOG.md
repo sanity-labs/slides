@@ -1,5 +1,40 @@
 # @sanity-labs/slides
 
+## 0.5.2
+
+### Patch Changes
+
+- [#16](https://github.com/sanity-labs/slides/pull/16) [`4e99602`](https://github.com/sanity-labs/slides/commit/4e99602c2b7026bcaa9c0e7f847e10be70dc721c) Thanks [@RostiMelk](https://github.com/RostiMelk)! - `slidesctl init` now writes the absolute path to the current Node binary into the MCP client config instead of bare `node`.
+
+  GUI apps like Claude Desktop don't inherit the user's shell PATH, so `command: "node"` could resolve to whichever `node` happens to be first in the GUI's PATH — often an ancient system Node that pre-dates top-level `await` and crashes the slidesctl server immediately with `SyntaxError: Unexpected reserved word`. Now we use `process.execPath`, which is the absolute path to the current Node binary (the one running `slidesctl init`). This guarantees the same Node version that successfully ran the wizard also runs the server.
+
+  Existing broken entries can be fixed by re-running `slidesctl use <name>`, or manually replacing `"command": "node"` with the absolute path in the MCP client config.
+
+- [#16](https://github.com/sanity-labs/slides/pull/16) [`4e99602`](https://github.com/sanity-labs/slides/commit/4e99602c2b7026bcaa9c0e7f847e10be70dc721c) Thanks [@RostiMelk](https://github.com/RostiMelk)! - `slidesctl init` and friends — friendlier copy throughout.
+
+  The first version of the wizard leaked protocol jargon ("server name", "MCP client", "Pass --client claude-desktop explicitly") that meant nothing to a designer or PM setting up the tool for the first time. This rewrites every prompt, description, and success message in plain language.
+
+  The "server name" prompt is gone entirely on the happy path — the wizard derives a sensible label from the source and only asks the user to pick a different one when they're installing a second template that would collide. Most users will now see three questions: which template, where to save decks, and which app(s) to set it up for.
+
+  Also adds a friendly intro on first run and a "what to do next" block in the success message:
+
+  ```
+  Let's set up a slide template so Claude can make decks in your brand.
+
+  ? Which template? (paste a GitHub link, URL, or folder path)
+  ? Where should Claude save the decks it makes? ~/Desktop/slides-template-decks
+  ? Set up for Claude Desktop? Yes
+
+  ✓ Done. "slides-template" is set up.
+
+  What to do next:
+    1. Quit Claude Desktop completely (Cmd+Q) and reopen it.
+    2. Ask Claude to make you a deck — e.g. "make a 5-slide pitch for Acme Corp".
+    3. Generated files will appear in: ~/Desktop/slides-template-decks
+  ```
+
+  Also adds `slidesctl update` (and surfaces it in `status` and the post-install message) so users know how to pull template changes over time.
+
 ## 0.5.1
 
 ### Patch Changes
