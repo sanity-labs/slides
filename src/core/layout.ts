@@ -202,12 +202,17 @@ const buildBoxNode = (
   if (props.rect) {
     // Escape hatch: agent provided absolute coords. Pin the node in place
     // and skip flex contribution. Children are still laid out inside this
-    // rect (so a rect-positioned card can use flex internally).
+    // rect (so a rect-positioned card can use flex internally) — width and
+    // height come from the rect, everything else (flexDirection, gap,
+    // padding, alignment) still flows in from className/style so the box's
+    // inner layout matches what the agent asked for.
     yogaNode.setPositionType(PositionType.Absolute);
     yogaNode.setPosition(Edge.Left, props.rect.x);
     yogaNode.setPosition(Edge.Top, props.rect.y);
     yogaNode.setWidth(props.rect.w);
     yogaNode.setHeight(props.rect.h);
+    const { width: _w, height: _h, ...inner } = resolved.yoga;
+    applyYogaStyle(yogaNode, inner);
   } else {
     applyYogaStyle(yogaNode, resolved.yoga);
   }

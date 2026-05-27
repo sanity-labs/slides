@@ -215,6 +215,32 @@ describe('layoutSlide — escape hatches', () => {
     });
   });
 
+  test('rect-positioned Box still applies className flex layout to its children', () => {
+    // A rect pins outer position+size; the className still drives inner flex
+    // direction, gap, padding so a card-style layout works without dropping
+    // back to nested wrapping Boxes.
+    const tree = createElement(
+      Slide,
+      null,
+      createElement(
+        Box,
+        { rect: { x: 0, y: 0, w: 400, h: 200 }, className: 'flex flex-row gap-4' },
+        createElement(Box, { className: 'flex-1' }, 'A'),
+        createElement(Box, { className: 'flex-1' }, 'B'),
+      ),
+    );
+    const result = renderToOps({
+      tree,
+      template: TestTemplate,
+      deckId: null,
+      now: FIXED_NOW,
+    });
+    const rects = shapesIn(result.ops);
+    // [outer, A, B] — A and B should be side-by-side (different x, same y).
+    expect(rects[2]!.x).toBeGreaterThan(rects[1]!.x);
+    expect(rects[2]!.y).toBe(rects[1]!.y);
+  });
+
   test('inline style overrides className on collision', () => {
     // className says flex-col, style says flex-row — style wins.
     const tree = createElement(
