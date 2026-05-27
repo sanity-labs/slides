@@ -1,5 +1,13 @@
 # @sanity-labs/slides
 
+## 0.5.3
+
+### Patch Changes
+
+- [#18](https://github.com/sanity-labs/slides/pull/18) [`c1a5a6e`](https://github.com/sanity-labs/slides/commit/c1a5a6e7552fa82753bf829870c4116ab1f3da7f) Thanks [@RostiMelk](https://github.com/RostiMelk)! - Fix `slides-dev` crashing on `Cannot find module 'slides-dev.ts'` when run from a published install.
+
+  The shim used tsx to load `slides-dev.ts` at runtime, which works in this repo's source tree but fails for consumers — published packages ship only `dist/`, not `src/`. The shim now prefers the compiled `dist/dev/bin/slides-dev.js` when present (the published case) and falls back to the `.ts` source via tsx only when running from a dev checkout.
+
 ## 0.5.2
 
 ### Patch Changes
